@@ -763,11 +763,22 @@ HEATMAP_STOCKS = {
     "APD": {"sector": "Materials", "cap": 60e9}
 }
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def get_live_price(symbol: str) -> float:
     symbol = symbol.strip().upper()
     if not symbol:
         return 0.0
+    api_key = os.environ.get("FINNHUB_API_KEY")
+    if api_key and not api_key.startswith("YOUR_"):
+        try:
+            url = "https://finnhub.io/api/v1/quote"
+            res = requests.get(url, params={"symbol": symbol, "token": api_key}, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("c", 0) > 0:
+                    return float(data["c"])
+        except Exception:
+            pass
     try:
         t = yf.Ticker(symbol)
         df = t.history(period="1d")
@@ -777,20 +788,28 @@ def get_live_price(symbol: str) -> float:
         pass
     return 0.0
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=30)
 def get_live_prices_batch(symbols: list) -> dict:
     if not symbols:
         return {}
     symbols = [s.strip().upper() for s in symbols]
+    prices = {}
+    api_key = os.environ.get("FINNHUB_API_KEY")
+    if api_key and not api_key.startswith("YOUR_"):
+        for sym in symbols:
+            p = get_live_price(sym)
+            if p > 0:
+                prices[sym] = p
+        if len(prices) == len(symbols):
+            return prices
+
     try:
         data = yf.download(symbols, period="1d", group_by="ticker", progress=False)
-        prices = {}
         for sym in symbols:
-            if len(symbols) == 1:
-                if not data.empty:
+            if sym not in prices:
+                if len(symbols) == 1 and not data.empty:
                     prices[sym] = float(data["Close"].iloc[-1])
-            else:
-                if sym in data and not data[sym].empty:
+                elif sym in data and not data[sym].empty:
                     prices[sym] = float(data[sym]["Close"].dropna().iloc[-1])
         return prices
     except Exception:

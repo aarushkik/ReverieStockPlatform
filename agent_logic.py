@@ -132,10 +132,10 @@ def run_heuristics(metrics: dict) -> dict:
         "summary": summary
     }
 
-def run_llm_agent(metrics: dict, api_key: str) -> dict:
+def run_llm_agent(metrics: dict, api_key: str, provider: str = "gemini") -> dict:
     """
-    Uses Gemini LLM to analyze stock indicators and news to write natural-sounding
-    predictions, summaries, reasons, and risks.
+    Uses an LLM (Gemini, OpenAI, Anthropic, or DeepSeek) to analyze stock indicators
+    and write natural-sounding predictions, summaries, reasons, and risks.
     """
     symbol = metrics["symbol"]
     headlines = [n["headline"] for n in metrics.get("news", [])[:10]]
@@ -172,31 +172,69 @@ Your output must contain exactly these keys:
 Respond with raw JSON only. Do not wrap in markdown blocks or write anything else.
 """
     try:
-        # Initialize Google GenAI client
-        client = genai.Client(api_key=api_key)
-        
-        # Call Gemini model
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        
+        text = ""
+        if provider == "gemini":
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+            text = response.text.strip()
+        elif provider == "openai":
+            import urllib.request
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            payload = json.dumps({
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }).encode("utf-8")
+            req = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as res:
+                body = json.loads(res.read().decode("utf-8"))
+                text = body["choices"][0]["message"]["content"].strip()
+        elif provider == "anthropic":
+            import urllib.request
+            headers = {
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            payload = json.dumps({
+                "model": "claude-3-5-sonnet-20241022",
+                "max_tokens": 1024,
+                "messages": [{"role": "user", "content": prompt}]
+            }).encode("utf-8")
+            req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as res:
+                body = json.loads(res.read().decode("utf-8"))
+                text = body["content"][0]["text"].strip()
+        elif provider == "deepseek":
+            import urllib.request
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            payload = json.dumps({
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }).encode("utf-8")
+            req = urllib.request.Request("https://api.deepseek.com/v1/chat/completions", data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as res:
+                body = json.loads(res.read().decode("utf-8"))
+                text = body["choices"][0]["message"]["content"].strip()
+                
         # Clean response string to parse JSON
-        text = response.text.strip()
         if text.startswith("```json"):
             text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
         
         evaluation = json.loads(text)
-        
-        # Verify required keys
         required_keys = ["prediction", "confidence_pct", "reasons", "risks", "summary"]
         if not all(key in evaluation for key in required_keys):
             raise ValueError("LLM response missing required JSON keys.")
             
-        # Ensure correct formatting
         evaluation["confidence_pct"] = int(evaluation["confidence_pct"])
         if evaluation["prediction"] not in ["Bullish", "Bearish", "Neutral"]:
             evaluation["prediction"] = "Neutral"
@@ -204,28 +242,36 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
         return evaluation
         
     except Exception as e:
-        logger.warning(f"Failed to use LLM pipeline for {symbol}: {str(e)}. Falling back to rules engine.")
-        # Fall back to deterministic rules
+        logger.warning(f"Failed to use LLM pipeline for {symbol} with provider {provider}: {str(e)}. Falling back to rules engine.")
         return run_heuristics(metrics)
 
 def evaluate_ticker(metrics: dict) -> dict:
     """
     Main orchestrator for evaluating a single ticker.
-    Checks environment for GEMINI_API_KEY (or allows passing it in),
-    and calls run_llm_agent or run_heuristics.
-    Also ensures the deterministic 'bullish_score' is generated for watchlist ranking.
+    Checks environment for GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY.
     """
-    # 1. Run heuristics to guarantee the deterministic 'bullish_score' is set on metrics
     heuristics_result = run_heuristics(metrics)
     
-    # 2. Check for Gemini Key
     gemini_key = os.environ.get("GEMINI_API_KEY")
-    if gemini_key:
-        # User has Gemini API setup, run LLM reasoning
-        llm_result = run_llm_agent(metrics, gemini_key)
-        # Retain the deterministic bullish_score from heuristics for ranking
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+    deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+    
+    if gemini_key and not gemini_key.startswith("YOUR_"):
+        llm_result = run_llm_agent(metrics, gemini_key, provider="gemini")
+        llm_result["bullish_score"] = metrics["bullish_score"]
+        return llm_result
+    elif openai_key and not openai_key.startswith("YOUR_"):
+        llm_result = run_llm_agent(metrics, openai_key, provider="openai")
+        llm_result["bullish_score"] = metrics["bullish_score"]
+        return llm_result
+    elif anthropic_key and not anthropic_key.startswith("YOUR_"):
+        llm_result = run_llm_agent(metrics, anthropic_key, provider="anthropic")
+        llm_result["bullish_score"] = metrics["bullish_score"]
+        return llm_result
+    elif deepseek_key and not deepseek_key.startswith("YOUR_"):
+        llm_result = run_llm_agent(metrics, deepseek_key, provider="deepseek")
         llm_result["bullish_score"] = metrics["bullish_score"]
         return llm_result
     else:
-        # Rule-based heuristics only
         return heuristics_result
