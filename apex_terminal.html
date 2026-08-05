@@ -125,8 +125,9 @@
             const seed = getSeed(meta.symbol);
             const rand = createRandom(seed);
             const basePrice = 25 + rand() * 220;
+            const baseChangePct = (rand() - 0.48) * 4.5;
+            const prevClose = basePrice / (1 + baseChangePct / 100);
             const price = Math.max(1.0, basePrice + offset);
-            const prevClose = basePrice;
             const changeVal = price - prevClose;
             const changePct = (changeVal / prevClose) * 100;
             return {
@@ -1713,24 +1714,34 @@
                                         <span>Size</span>
                                         <span>Bid price</span>
                                     </div>
-                                    {l2Data.bids.map((b, i) => (
-                                        <div key={i} class="flex justify-between py-0.5 px-1.5 rounded relative hover:bg-brand-bgHoverLight dark:hover:bg-brand-bgHoverDark">
-                                            <span class="text-brand-textSecondaryLight dark:text-brand-textSecondaryDark font-medium tabular-nums">{b.size}</span>
-                                            <span class="text-brand-green tabular-nums">${b.price.toFixed(2)}</span>
-                                        </div>
-                                    ))}
+                                    {l2Data.bids.map((b, i) => {
+                                        const maxBidSize = Math.max(...l2Data.bids.map(item => item.size), 1);
+                                        const depthPct = Math.min(100, (b.size / maxBidSize) * 100);
+                                        return (
+                                            <div key={i} class="flex justify-between py-0.5 px-1.5 rounded relative hover:bg-brand-bgHoverLight dark:hover:bg-brand-bgHoverDark overflow-hidden">
+                                                <div class="absolute right-0 top-0 bottom-0 bg-brand-green/15 rounded-r" style={{ width: `${depthPct}%` }}></div>
+                                                <span class="text-brand-textSecondaryLight dark:text-brand-textSecondaryDark font-medium tabular-nums relative z-10">{b.size}</span>
+                                                <span class="text-brand-green tabular-nums relative z-10">${b.price.toFixed(2)}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                                 <div class="flex flex-col h-full font-bold min-h-0">
                                     <div class="flex justify-between text-[10px] text-brand-textSecondaryLight dark:text-brand-textSecondaryDark uppercase pb-1 mb-1 border-b border-brand-borderLight dark:border-brand-borderDark">
                                         <span>Ask price</span>
                                         <span>Size</span>
                                     </div>
-                                    {l2Data.asks.map((a, i) => (
-                                        <div key={i} class="flex justify-between py-0.5 px-1.5 rounded relative hover:bg-brand-bgHoverLight dark:hover:bg-brand-hoverDark">
-                                            <span class="text-brand-red tabular-nums">${a.price.toFixed(2)}</span>
-                                            <span class="text-brand-textSecondaryLight dark:text-brand-textSecondaryDark font-medium tabular-nums">{a.size}</span>
-                                        </div>
-                                    ))}
+                                    {l2Data.asks.map((a, i) => {
+                                        const maxAskSize = Math.max(...l2Data.asks.map(item => item.size), 1);
+                                        const depthPct = Math.min(100, (a.size / maxAskSize) * 100);
+                                        return (
+                                            <div key={i} class="flex justify-between py-0.5 px-1.5 rounded relative hover:bg-brand-bgHoverLight dark:hover:bg-brand-bgHoverDark overflow-hidden">
+                                                <div class="absolute left-0 top-0 bottom-0 bg-brand-red/15 rounded-l" style={{ width: `${depthPct}%` }}></div>
+                                                <span class="text-brand-red tabular-nums relative z-10">${a.price.toFixed(2)}</span>
+                                                <span class="text-brand-textSecondaryLight dark:text-brand-textSecondaryDark font-medium tabular-nums relative z-10">{a.size}</span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -2008,13 +2019,15 @@
                                 <span class="text-[11px] font-bold text-brand-textSecondaryLight dark:text-brand-textSecondaryDark uppercase tracking-widest">Market Sentiment Consensus</span>
                             </div>
                             <div class="flex flex-col items-center justify-center relative">
-                                <svg class="w-44 h-24 overflow-visible" viewBox="0 0 100 50">
+                                <svg class="w-48 h-28 overflow-visible" viewBox="-5 -5 110 65">
                                     <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#FF3B30" stroke-width="8" stroke-linecap="round" />
                                     <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#00C805" stroke-width="8" stroke-dasharray="80 120" stroke-linecap="round" />
-                                    <line x1="50" y1="50" x2={needleX} y2={needleY} stroke="#58A6FF" stroke-width="3" stroke-linecap="round" />
+                                    <line x1="50" y1="50" x2={needleX} y2={needleY} stroke="#58A6FF" stroke-width="3.5" stroke-linecap="round" />
                                     <circle cx="50" cy="50" r="5" fill="#58A6FF" />
+                                    <text x="4" y="58" font-size="7" fill="#8A94A6" font-weight="bold">-1.0</text>
+                                    <text x="88" y="58" font-size="7" fill="#8A94A6" font-weight="bold">+1.0</text>
                                 </svg>
-                                <span class="text-xs font-black uppercase text-brand-green tracking-widest mt-2">
+                                <span class="text-xs font-black uppercase text-brand-green tracking-widest mt-1">
                                     {score > 0.1 ? "Bullish Lean" : score < -0.1 ? "Bearish Lean" : "Neutral Weight"} ({score.toFixed(2)})
                                 </span>
                             </div>
@@ -2139,13 +2152,15 @@
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-grow min-h-0 font-bold select-none">
                         <PanelChrome title="Fear & Greed Index">
                             <div class="h-40 flex flex-col items-center justify-center relative">
-                                <svg class="w-48 h-24" viewBox="0 0 100 50">
-                                    <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#FF3B30" stroke-width="8" stroke-dasharray="100" />
-                                    <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#00C805" stroke-width="8" stroke-dasharray="75 100" />
-                                    <line x1="50" y1="50" x2="65" y2="20" stroke="#58A6FF" stroke-width="3.5" />
+                                <svg class="w-48 h-28 overflow-visible" viewBox="-5 -5 110 65">
+                                    <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#FF3B30" stroke-width="8" stroke-dasharray="100" stroke-linecap="round" />
+                                    <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#00C805" stroke-width="8" stroke-dasharray="75 100" stroke-linecap="round" />
+                                    <line x1="50" y1="50" x2="65" y2="20" stroke="#58A6FF" stroke-width="3.5" stroke-linecap="round" />
                                     <circle cx="50" cy="50" r="4.5" fill="#58A6FF" />
+                                    <text x="6" y="58" font-size="7" fill="#8A94A6" font-weight="bold">0</text>
+                                    <text x="88" y="58" font-size="7" fill="#8A94A6" font-weight="bold">100</text>
                                 </svg>
-                                <span class="text-xs text-brand-green uppercase font-black tracking-widest mt-2">Greed (68)</span>
+                                <span class="text-xs text-brand-green uppercase font-black tracking-widest mt-1">Greed (68)</span>
                             </div>
                         </PanelChrome>
                     </div>
