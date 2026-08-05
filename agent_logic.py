@@ -221,18 +221,25 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
                 body = json.loads(res.read().decode("utf-8"))
                 text = body["choices"][0]["message"]["content"].strip()
         elif provider == "featherless":
-            import urllib.request
-            model_name = os.environ.get("FEATHERLESS_MODEL", "meta-llama/Meta-Llama-3.3-70B-Instruct")
-            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-            payload = json.dumps({
+            import requests
+            model_name = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json={
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3
-            }).encode("utf-8")
-            req = urllib.request.Request("https://api.featherless.ai/v1/chat/completions", data=payload, headers=headers)
-            with urllib.request.urlopen(req, timeout=15) as res:
-                body = json.loads(res.read().decode("utf-8"))
-                text = body["choices"][0]["message"]["content"].strip()
+            }, timeout=15)
+            if res.status_code != 200 and ("gated" in res.text.lower() or res.status_code in (403, 404)):
+                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json={
+                    "model": "Qwen/Qwen2.5-72B-Instruct",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3
+                }, timeout=15)
+            res.raise_for_status()
+            text = res.json()["choices"][0]["message"]["content"].strip()
                 
         # Clean response string to parse JSON
         if text.startswith("```json"):
