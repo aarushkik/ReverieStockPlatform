@@ -5,11 +5,21 @@ import pandas as pd
 from datetime import datetime, timedelta
 import yfinance as yf
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+def load_env_file():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, val = line.split("=", 1)
+                        if key.strip() not in os.environ:
+                            os.environ[key.strip()] = val.strip()
+        except Exception:
+            pass
+
+load_env_file()
 
 def fetch_yfinance_data(symbol: str) -> dict:
     """
