@@ -220,6 +220,19 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
             with urllib.request.urlopen(req, timeout=12) as res:
                 body = json.loads(res.read().decode("utf-8"))
                 text = body["choices"][0]["message"]["content"].strip()
+        elif provider == "featherless":
+            import urllib.request
+            model_name = os.environ.get("FEATHERLESS_MODEL", "meta-llama/Meta-Llama-3.3-70B-Instruct")
+            headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+            payload = json.dumps({
+                "model": model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }).encode("utf-8")
+            req = urllib.request.Request("https://api.featherless.ai/v1/chat/completions", data=payload, headers=headers)
+            with urllib.request.urlopen(req, timeout=15) as res:
+                body = json.loads(res.read().decode("utf-8"))
+                text = body["choices"][0]["message"]["content"].strip()
                 
         # Clean response string to parse JSON
         if text.startswith("```json"):
@@ -248,16 +261,21 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
 def evaluate_ticker(metrics: dict) -> dict:
     """
     Main orchestrator for evaluating a single ticker.
-    Checks environment for GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY.
+    Checks environment for FEATHERLESS_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY.
     """
     heuristics_result = run_heuristics(metrics)
     
+    featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
     deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
     
-    if gemini_key and not gemini_key.startswith("YOUR_"):
+    if featherless_key and not featherless_key.startswith("YOUR_"):
+        llm_result = run_llm_agent(metrics, featherless_key, provider="featherless")
+        llm_result["bullish_score"] = metrics["bullish_score"]
+        return llm_result
+    elif gemini_key and not gemini_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, gemini_key, provider="gemini")
         llm_result["bullish_score"] = metrics["bullish_score"]
         return llm_result
