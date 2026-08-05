@@ -5,6 +5,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import yfinance as yf
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 def fetch_yfinance_data(symbol: str) -> dict:
     """
     Fetches historical stock prices and recent news using yfinance.

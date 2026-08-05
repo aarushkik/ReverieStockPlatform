@@ -232,8 +232,14 @@ _REACT_ORDER_DESK = st.components.v2.component(
 # ==============================================================================
 # STREAMLIT PAGE CONFIGURATION
 # ==============================================================================
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 st.set_page_config(
-    page_title="QUANTVIZ TERMINAL",
+    page_title="STOCKMARKET TERMINAL",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
