@@ -8,55 +8,55 @@ def calculate_price_metrics(df: pd.DataFrame) -> dict:
     """
     metrics = {}
     
+    if df.empty or 'Close' not in df.columns:
+        return metrics
+        
     # Clean the index and ensure sorting by date asc
     df = df.sort_index()
-    
-    # 1. Prices
-    close_prices = df['Close'].values
+    clean_series = df['Close'].dropna()
+    close_prices = clean_series.values
     if len(close_prices) == 0:
-        return {}
+        return metrics
         
     last_close = float(close_prices[-1])
     metrics['last_close'] = last_close
     
     # 2. Historical changes
-    # Day Change (1-day change)
     if len(close_prices) > 1:
         prev_close = float(close_prices[-2])
-        metrics['day_change_pct'] = ((last_close - prev_close) / prev_close) * 100
+        metrics['day_change_pct'] = ((last_close - prev_close) / prev_close) * 100 if prev_close > 0 else 0.0
     else:
         metrics['day_change_pct'] = 0.0
         
     # 5-day change
     if len(close_prices) >= 6:
         close_5d_ago = float(close_prices[-6])
-        metrics['change_5d_pct'] = ((last_close - close_5d_ago) / close_5d_ago) * 100
+        metrics['change_5d_pct'] = ((last_close - close_5d_ago) / close_5d_ago) * 100 if close_5d_ago > 0 else 0.0
     else:
-        metrics['change_5d_pct'] = None
+        metrics['change_5d_pct'] = 0.0
         
     # 20-day change
     if len(close_prices) >= 21:
         close_20d_ago = float(close_prices[-21])
-        metrics['change_20d_pct'] = ((last_close - close_20d_ago) / close_20d_ago) * 100
+        metrics['change_20d_pct'] = ((last_close - close_20d_ago) / close_20d_ago) * 100 if close_20d_ago > 0 else 0.0
     else:
-        metrics['change_20d_pct'] = None
+        metrics['change_20d_pct'] = 0.0
         
     # 60-day change
     if len(close_prices) >= 61:
         close_60d_ago = float(close_prices[-61])
-        metrics['change_60d_pct'] = ((last_close - close_60d_ago) / close_60d_ago) * 100
+        metrics['change_60d_pct'] = ((last_close - close_60d_ago) / close_60d_ago) * 100 if close_60d_ago > 0 else 0.0
     else:
-        metrics['change_60d_pct'] = None
+        metrics['change_60d_pct'] = 0.0
         
     # 3. Simple Moving Averages
-    # 5-day SMA
-    metrics['sma_5'] = float(df['Close'].tail(5).mean()) if len(df) >= 5 else float(df['Close'].mean())
-    
-    # 20-day SMA
-    metrics['sma_20'] = float(df['Close'].tail(20).mean()) if len(df) >= 20 else float(df['Close'].mean())
-    
-    # 60-day SMA
-    metrics['sma_60'] = float(df['Close'].tail(60).mean()) if len(df) >= 60 else float(df['Close'].mean())
+    def _safe_mean(ser):
+        val = float(ser.mean())
+        return val if not np.isnan(val) else last_close
+
+    metrics['sma_5'] = _safe_mean(clean_series.tail(5)) if len(clean_series) >= 5 else last_close
+    metrics['sma_20'] = _safe_mean(clean_series.tail(20)) if len(clean_series) >= 20 else last_close
+    metrics['sma_60'] = _safe_mean(clean_series.tail(60)) if len(clean_series) >= 60 else last_close
     
     return metrics
 
@@ -64,26 +64,23 @@ def calculate_volatility(df: pd.DataFrame) -> dict:
     """
     Calculates annualized volatility using daily returns over the last 20 trading days.
     """
-    if len(df) < 2:
+    if df.empty or 'Close' not in df.columns or len(df) < 2:
         return {"volatility_pct": 0.0, "level": "Low"}
         
-    # Calculate daily returns
-    daily_returns = df['Close'].pct_change().dropna()
-    
-    # Take the last 20 days (or all if fewer than 20)
+    daily_returns = df['Close'].dropna().pct_change().dropna()
     lookback_returns = daily_returns.tail(20)
     
     if len(lookback_returns) < 2:
         return {"volatility_pct": 0.0, "level": "Low"}
         
-    # Standard deviation of daily returns
     daily_std = float(lookback_returns.std())
-    
-    # Annualize (assuming 252 trading days per year)
+    if np.isnan(daily_std):
+        return {"volatility_pct": 0.0, "level": "Low"}
+        
     annualized_vol = daily_std * np.sqrt(252) * 100
-    
-    # Volatility category threshold based on historical index/equity behaviors
-    # Low: < 15%, Medium: 15% - 30%, High: > 30%
+    if np.isnan(annualized_vol):
+        annualized_vol = 0.0
+        
     if annualized_vol < 15:
         level = "Low"
     elif annualized_vol <= 30:
