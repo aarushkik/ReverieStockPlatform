@@ -360,8 +360,10 @@ st.markdown("""
 
     /* 3. Premium Card Framework */
     .fintech-card {
-        background-color: #11151F !important;
-        border: 1px solid #1E2433 !important;
+        background-color: rgba(17, 21, 31, 0.85) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 6px !important;
         padding: 14px !important;
         margin-bottom: 8px !important;
@@ -371,6 +373,11 @@ st.markdown("""
         height: 100%;
         box-sizing: border-box;
         overflow: hidden;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .fintech-card:hover {
+        border-color: rgba(88, 166, 255, 0.35) !important;
+        box-shadow: 0 6px 24px rgba(0,0,0,0.35) !important;
     }
     .card-highlighted {
         border: 1px solid #00C805 !important;
