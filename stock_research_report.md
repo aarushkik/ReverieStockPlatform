@@ -3,39 +3,39 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-01 18:10:22*
+*Report generated on: 2026-08-05 16:30:35*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Bullish** outlook with **63%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Neutral** outlook with **60%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Bullish (63% Confidence)
+### AAPL - Neutral (60% Confidence)
 
-**Last Close:** $308.91 (-7.35%)  
-**Technical Indicators:** 5-Day SMA: $331.50 | 20-Day SMA: $324.37 | 60-Day SMA: $307.07  
-**Volatility:** 36.7% (High)  
+**Last Close:** $311.00 (+0.52%)  
+**Technical Indicators:** 5-Day SMA: $313.23 | 20-Day SMA: $323.72 | 60-Day SMA: $308.01  
+**Volatility:** 37.5% (High)  
 **Sentiment Scored:** Neutral (Rating: 0.10)  
 
 **Agent Evaluation Summary:**  
-AAPL exhibits a bullish technical structure. Key technical indicators are aligned to the upside with favorable short-to-medium term moving averages.
+["Apple's stock (AAPL) is currently showing a neutral trend with slight recovery from recent declines, but faces short-term downward pressure from the 20-day SMA.", "Investors should be cautious due to high volatility and mixed news, which could affect the stock's performance in the near term."]
 
 #### 🟢 Key Bullish Catalysts
-- Short-term moving average (5-day) is above the 20-day SMA, indicating upward crossover momentum.
-- Stock exhibits price stabilization near recent support zones.
+- The recent price action shows a slight recovery from a 5-day decline, but the 20-day SMA is still above the current price, indicating a short-term downward pressure.
+- The neutral sentiment rating and mixed news headlines suggest that there is no strong bullish or bearish momentum driving the stock at the moment.
 
 #### 🔴 Key Bearish Risks & Warnings
-- Elevated price volatility (annualized at 36.7%) signals high potential for sudden, unpredictable price swings.
-- Recent short-term selling pressure is high with a decline of -7.24% over the last 5 trading days.
+- High annualized volatility indicates significant price fluctuations, which can lead to increased risk for investors.
+- Negative news regarding Apple's search for cheaper memory and the departure of Tim Cook could impact investor sentiment and stock performance.
 
 #### 📰 Recent Headlines Feed
-- **Aug 02, 2026** - [Apple’s record iPhone boom just became a Wall Street trap](https://finance.yahoo.com/markets/stocks/articles/apple-record-iphone-boom-just-010300741.html) (*TheStreet*)
-- **Aug 01, 2026** - [US Schools Are Ditching Chromebooks for MacBooks by the Thousands— Apple Just Named Names](https://finance.yahoo.com/technology/articles/us-schools-ditching-chromebooks-macbooks-233015401.html) (*Benzinga*)
-- **Aug 01, 2026** - [Apple CEO sends strong warning on AI and price of Apple products](https://finance.yahoo.com/technology/articles/apple-ceo-sends-strong-warning-200700035.html) (*TheStreet*)
-- **Aug 01, 2026** - [Apple's Services Slowdown Has a Weird Culprit: No F1 Movie This Year](https://finance.yahoo.com/markets/stocks/articles/apples-services-slowdown-weird-culprit-193027566.html) (*Benzinga*)
-- **Aug 01, 2026** - [Should you still buy your next smartphone — or subscribe to it instead?](https://finance.yahoo.com/technology/articles/still-buy-next-smartphone-subscribe-184727955.html) (*TechCrunch*)
+- **Aug 05, 2026** - [Price hikes on consumer electronics could be here to stay. Here's why.](https://finance.yahoo.com/video/price-hikes-consumer-electronics-could-195601126.html) (*Yahoo Finance Video*)
+- **Aug 05, 2026** - [The Calm Surface of Alphabet Stock Hides a Turbulent Forecast](https://finance.yahoo.com/markets/options/articles/calm-surface-alphabet-stock-hides-203316161.html) (*Trefis*)
+- **Aug 05, 2026** - [SpaceX’s $1T Goal and 3 More Shockers From Musk on the Earnings Call](https://www.barrons.com/articles/spacex-stock-elon-musk-earnings-ai-89d68b40?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
+- **Aug 05, 2026** - [Spain's 'Warren Buffett' Bets Against the Crowd--and It's Paying Off](https://finance.yahoo.com/markets/stocks/articles/spains-warren-buffett-bets-against-192624264.html) (*GuruFocus.com*)
+- **Aug 05, 2026** - [Apple's Search for Cheaper Memory Just Hit a Wall](https://finance.yahoo.com/markets/stocks/articles/apples-search-cheaper-memory-just-183310958.html) (*GuruFocus.com*)
 
 ---
 
