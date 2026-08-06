@@ -3044,13 +3044,73 @@
                 return routesList.filter(r => r.name.toLowerCase().includes(cmdQuery.toLowerCase()));
             }, [cmdQuery]);
 
+            // Web Audio API Ambient & Click Sound Generator
+            const [ambientPlaying, setAmbientPlaying] = useState(false);
+            const ambientOscRef = useRef(null);
+
+            const playClickSound = () => {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = "sine";
+                    osc.frequency.setValueAtTime(800, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.04);
+                    gain.gain.setValueAtTime(0.015, ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start();
+                    osc.stop(ctx.currentTime + 0.04);
+                } catch(e) {}
+            };
+
+            const toggleAmbientAudio = () => {
+                if (ambientPlaying) {
+                    if (ambientOscRef.current) {
+                        try { ambientOscRef.current.stop(); } catch(e){}
+                    }
+                    setAmbientPlaying(false);
+                } else {
+                    try {
+                        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = "triangle";
+                        osc.frequency.setValueAtTime(220, ctx.currentTime);
+                        gain.gain.setValueAtTime(0.01, ctx.currentTime);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start();
+                        ambientOscRef.current = osc;
+                        setAmbientPlaying(true);
+                    } catch(e) {
+                        setAmbientPlaying(false);
+                    }
+                }
+            };
+
             return (
                 <div class="h-screen w-screen flex flex-col justify-between overflow-hidden bg-brand-bgAppLight dark:bg-brand-bgAppDark text-brand-textPrimaryLight dark:text-brand-textPrimaryDark transition-colors duration-120 font-sans text-xs">
                     
+                    {/* Live Marquee Ticker Tape Banner */}
+                    <div class="h-6 bg-brand-bgPanelAltDark border-b border-brand-borderDark flex items-center overflow-hidden whitespace-nowrap text-[10px] tabular-nums font-bold select-none text-brand-textSecondaryDark z-50">
+                        <div class="inline-flex items-center gap-8 px-4 font-bold tracking-wider">
+                            <span><strong class="text-brand-accentBlue">AAPL</strong> $311.00 <span class="text-brand-green">+1.4%</span></span>
+                            <span><strong class="text-brand-accentBlue">NVDA</strong> $128.50 <span class="text-brand-green">+3.2%</span></span>
+                            <span><strong class="text-brand-accentBlue">TSLA</strong> $245.80 <span class="text-brand-red">-0.8%</span></span>
+                            <span><strong class="text-brand-accentBlue">MSFT</strong> $420.10 <span class="text-brand-green">+0.9%</span></span>
+                            <span><strong class="text-brand-accentBlue">AMD</strong> $165.40 <span class="text-brand-green">+2.1%</span></span>
+                            <span><strong class="text-brand-accentBlue">BTC/USD</strong> $64,250 <span class="text-brand-green">+2.5%</span></span>
+                            <span><strong class="text-brand-accentBlue">ETH/USD</strong> $3,450 <span class="text-brand-green">+1.8%</span></span>
+                            <span><strong class="text-brand-accentBlue">SPY</strong> $518.42 <span class="text-brand-green">+1.1%</span></span>
+                        </div>
+                    </div>
+
                     {/* Top nav bar, fixed height 64px, full width */}
                     <header class="h-16 border-b border-brand-borderLight dark:border-brand-borderDark bg-white dark:bg-brand-bgPanelDark flex items-center justify-between px-6 z-40 select-none shrink-0 shadow-md">
                         <div class="flex items-center gap-6">
-                            <span onClick={() => navigate("/")} class="font-black text-lg tracking-wider text-brand-accentBlue cursor-pointer flex items-center gap-1.5 uppercase select-none">
+                            <span onClick={() => { playClickSound(); navigate("/"); }} class="font-black text-lg tracking-wider text-brand-accentBlue cursor-pointer flex items-center gap-1.5 uppercase select-none active:scale-95 transition-transform">
                                 <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
                                     <path d="M12 2L2 22h20L12 2zm1 14h-2v-2h2v2zm0-4h-2V8h2v4z"/>
                                 </svg>
@@ -3149,6 +3209,12 @@
                             <div class="bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark border border-brand-borderLight dark:border-brand-borderDark px-3 py-1.5 rounded-full text-xs font-bold tabular-nums text-brand-green">
                                 ${cash.toFixed(2)}
                             </div>
+                            <button 
+                                onClick={toggleAmbientAudio} 
+                                class="px-2.5 py-1.5 border border-brand-borderLight dark:border-brand-borderDark hover:bg-brand-bgHoverLight dark:hover:bg-brand-bgHoverDark rounded-md transition-all text-brand-textSecondaryLight dark:text-brand-textSecondaryDark flex items-center gap-1 font-extrabold text-[10px] uppercase active:scale-95 select-none"
+                            >
+                                <span>{ambientPlaying ? "🔊 Audio: ON" : "🔈 Audio: OFF"}</span>
+                            </button>
                             <button 
                                 aria-label="Toggle visual theme"
                                 onClick={() => setLightMode(prev => !prev)}
