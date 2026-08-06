@@ -13,7 +13,7 @@ import urllib.request
 # Import backend engine
 from data_fetcher import get_stock_data
 from analyzer import run_analysis, analyze_sentiment
-from agent_logic import evaluate_ticker
+from agent_logic import evaluate_ticker, chat_with_ai_copilot
 from dashboard import generate_markdown_report
 
 # Custom React component for Order Entry using CCv2
@@ -286,7 +286,7 @@ st.markdown("""
         padding-right: 1rem !important;
         background-color: #0B0E14 !important;
     }
-    header, footer, [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stSidebarCollapseButton"] {
+    header, footer, [data-testid="stHeader"] {
         display: none !important;
         visibility: hidden !important;
         height: 0px !important;
@@ -3065,7 +3065,55 @@ elif current_tab == "PATTERN_GUIDE":
     <p style="color:#C9D1D9; line-height:1.4; margin-bottom:12px;">Applies position sizing logic capped at exactly 25% of total virtual equity. Formulated as: <strong>min(25%, TargetRisk / Volatility x 100)</strong>. This forces smaller position sizes on highly volatile assets to safeguard overall capital.</p>
     <div style="font-size:14px; font-weight:600; color:#FFFFFF; margin-bottom:8px;">Support & Resistance Floors</div>
     <p style="color:#C9D1D9; line-height:1.4; margin-bottom:12px;">Support marks the historical floor where buyers emerge to halt price declines. Resistance marks the historical ceiling where sellers supply stock to prevent further advances. Computed from the 20-day high and low parameters.</p>
-    <div style="font-size:14px; font-weight:600; color:#FFFFFF; margin-bottom:8px;">MACD (Moving Average Convergence Divergence)</div>
-    <p style="color:#C9D1D9; line-height:1.4;">A trend-following momentum indicator showing the relationship between two moving averages (12 EMA and 26 EMA) of an asset's price. When the MACD line crosses above the Signal line, it indicates bullish momentum; when it crosses below, bearish momentum.</p>
 </div>
 """, unsafe_allow_html=True)
+# ==============================================================================
+# SIDEBAR AI COPILOT CHAT ASSISTANT & MODEL SELECTOR
+# ==============================================================================
+with st.sidebar:
+    st.markdown("### 💬 AI Copilot Assistant")
+    st.caption("Chat with an institutional AI market assistant powered by Featherless AI:")
+    
+    selected_copilot_model = st.selectbox(
+        "Select Active AI Model:",
+        [
+            "Qwen/Qwen2.5-72B-Instruct",
+            "meta-llama/Llama-3.3-70B-Instruct",
+            "deepseek-ai/DeepSeek-V3",
+            "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+            "meta-llama/Meta-Llama-3.1-8B-Instruct",
+            "google/gemma-2-27b-it"
+        ],
+        index=0,
+        key="sidebar_model_select"
+    )
+    
+    st.markdown("---")
+    
+    if "sidebar_chat_messages" not in st.session_state:
+        st.session_state["sidebar_chat_messages"] = [
+            {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, or trading risks!"}
+        ]
+        
+    chat_container = st.container(height=380)
+    with chat_container:
+        for msg in st.session_state["sidebar_chat_messages"]:
+            st.chat_message(msg["role"]).write(msg["content"])
+            
+    user_input = st.chat_input("Ask AI Copilot about stocks...")
+    if user_input:
+        st.session_state["sidebar_chat_messages"].append({"role": "user", "content": user_input})
+        with chat_container:
+            st.chat_message("user").write(user_input)
+            
+        current_ticker = st.session_state.get("selected_ticker", "AAPL")
+        with st.spinner(f"Reasoning via {selected_copilot_model.split('/')[-1]}..."):
+            reply = chat_with_ai_copilot(
+                user_query=user_input,
+                chat_history=st.session_state["sidebar_chat_messages"],
+                model_name=selected_copilot_model,
+                context_ticker=current_ticker
+            )
+        st.session_state["sidebar_chat_messages"].append({"role": "assistant", "content": reply})
+        with chat_container:
+            st.chat_message("assistant").write(reply)
