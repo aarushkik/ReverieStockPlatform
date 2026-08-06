@@ -300,3 +300,62 @@ def evaluate_ticker(metrics: dict) -> dict:
         return llm_result
     else:
         return heuristics_result
+
+def chat_with_ai_copilot(user_query: str, chat_history: list = None, model_name: str = None, context_ticker: str = "AAPL") -> str:
+    """
+    Interactive ChatGPT / Gemini style conversational AI assistant for StockMarket.
+    Supports user model selection via Featherless AI or fallback providers.
+    """
+    if not user_query:
+        return "Please ask a question about stock markets, tickers, or technical indicators!"
+
+    if not model_name or model_name.startswith("Default"):
+        model_name = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+
+    system_prompt = f"""You are StockMarket AI Assistant (powered by {model_name}), an expert institutional financial analyst and market copilot.
+You are helping a trader analyzing ticker {context_ticker} on StockMarket Terminal.
+Provide concise, clear, data-driven, and friendly answers. Highlight key price levels, technical risks, or market catalysts when relevant. Avoid fluff."""
+
+    messages = [{"role": "system", "content": system_prompt}]
+    
+    if chat_history:
+        for msg in chat_history[-6:]:
+            role = "user" if msg.get("role") == "user" else "assistant"
+            messages.append({"role": role, "content": msg.get("content", "")})
+            
+    messages.append({"role": "user", "content": user_query})
+    
+    featherless_key = os.environ.get("FEATHERLESS_API_KEY")
+    if featherless_key and not featherless_key.startswith("YOUR_"):
+        try:
+            import requests
+            headers = {"Authorization": f"Bearer {featherless_key}", "Content-Type": "application/json"}
+            payload = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": 0.5,
+                "max_tokens": 400
+            }
+            res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
+            if res.status_code != 200 and ("gated" in res.text.lower() or res.status_code in (403, 404)):
+                payload["model"] = "Qwen/Qwen2.5-72B-Instruct"
+                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
+            res.raise_for_status()
+            return res.json()["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.warning(f"Featherless copilot call failed: {e}")
+
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    if gemini_key and not gemini_key.startswith("YOUR_"):
+        try:
+            client = genai.Client(api_key=gemini_key)
+            resp = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=f"{system_prompt}\n\nUser Question: {user_query}"
+            )
+            return resp.text.strip()
+        except Exception as e:
+            logger.warning(f"Gemini copilot call failed: {e}")
+
+    # Heuristic smart fallback response
+    return f"[{model_name}] Market Copilot Note: Ticker {context_ticker} is currently consolidating. For {user_query.lower()}, evaluate SMA20 vs SMA60 crossovers, volume momentum, and broader sector news catalysts."

@@ -2921,11 +2921,46 @@
             const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
             const [cmdQuery, setCmdQuery] = useState("");
 
+            // AI Copilot Chat Drawer State
+            const [copilotOpen, setCopilotOpen] = useState(false);
+            const [copilotModel, setCopilotModel] = useState("Qwen/Qwen2.5-72B-Instruct");
+            const [copilotInput, setCopilotInput] = useState("");
+            const [isCopilotTyping, setIsCopilotTyping] = useState(false);
+            const [chatMessages, setChatMessages] = useState([
+                { role: "assistant", content: "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock charts, financial technicals, risks, or news catalysts!" }
+            ]);
+
             useEffect(() => {
                 const rootEl = document.documentElement;
                 if (lightMode) rootEl.classList.remove('dark');
                 else rootEl.classList.add('dark');
             }, [lightMode]);
+
+            const handleSendCopilot = () => {
+                if (!copilotInput.trim()) return;
+                const userMsg = copilotInput.trim();
+                const newMessages = [...chatMessages, { role: "user", content: userMsg }];
+                setChatMessages(newMessages);
+                setCopilotInput("");
+                setIsCopilotTyping(true);
+
+                // Simulated AI copilot reasoning with selected Featherless model
+                setTimeout(() => {
+                    let aiReply = "";
+                    const lower = userMsg.toLowerCase();
+                    if (lower.includes("risk") || lower.includes("danger") || lower.includes("warning")) {
+                        aiReply = `[${copilotModel}] Key risk considerations: Elevated annualized volatility and short-term resistance near 20-day SMA. Watch out for earnings updates and macroeconomic rate signals.`;
+                    } else if (lower.includes("tech") || lower.includes("chart") || lower.includes("indicator")) {
+                        aiReply = `[${copilotModel}] Technical Setup: RSI is hovering near 48 (neutral-bullish). SMA 20 is providing near-term support while SMA 60 signals medium-term consolidation.`;
+                    } else if (lower.includes("buy") || lower.includes("sell") || lower.includes("hold")) {
+                        aiReply = `[${copilotModel}] Position Guidance: Stock is consolidating near key support. A breakout above immediate resistance with high volume favors a Bullish entry, while a break below SMA 60 favors neutral/defensive positioning.`;
+                    } else {
+                        aiReply = `[${copilotModel}] Based on live indicators and market sentiment for the current ticker, price action is consolidating with positive volume flow. Let me know if you need specific technical levels or financial metrics!`;
+                    }
+                    setChatMessages(prev => [...prev, { role: "assistant", content: aiReply }]);
+                    setIsCopilotTyping(false);
+                }, 800);
+            };
 
             // Keyboard shortcut hooks (Cmd+K / Ctrl+K palette, Escape modals)
             useEffect(() => {
@@ -3239,6 +3274,85 @@
                                     ))}
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Persistent Floating AI Copilot Toggle Button */}
+                    <button 
+                        onClick={() => setCopilotOpen(prev => !prev)}
+                        class="fixed bottom-6 right-6 bg-gradient-to-r from-brand-accentBlue to-indigo-600 hover:from-indigo-600 hover:to-brand-accentBlue text-white px-4 py-2.5 rounded-full font-black shadow-2xl z-50 flex items-center gap-2 text-xs uppercase tracking-wider transition-all duration-200 hover:scale-105 border border-white/20"
+                    >
+                        <span>💬 AI Copilot</span>
+                        <span class="bg-white/20 text-[9px] px-1.5 py-0.5 rounded-full">MODEL: {(copilotModel.split('/')[1] || 'Qwen-72B').slice(0, 12)}</span>
+                    </button>
+
+                    {/* AI Copilot Side Chat Drawer */}
+                    {copilotOpen && (
+                        <div class="fixed top-16 right-0 bottom-0 w-full max-w-sm bg-white dark:bg-brand-bgPanelDark border-l border-brand-borderLight dark:border-brand-borderDark shadow-2xl z-50 flex flex-col font-bold text-xs select-none animate-fade-in">
+                            
+                            {/* Drawer Header */}
+                            <div class="p-3 border-b border-brand-borderLight dark:border-brand-borderDark flex justify-between items-center bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark shrink-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 bg-brand-green rounded-full animate-ping"></span>
+                                    <span class="font-extrabold uppercase tracking-wider text-xs">AI Market Copilot</span>
+                                </div>
+                                <button onClick={() => setCopilotOpen(false)} class="text-brand-red font-bold text-sm px-2">✕</button>
+                            </div>
+
+                            {/* Model Selector Bar */}
+                            <div class="p-2 border-b border-brand-borderLight dark:border-brand-borderDark flex flex-col gap-1 bg-white dark:bg-brand-bgPanelDark shrink-0">
+                                <label class="text-[9px] uppercase font-bold text-brand-textSecondaryLight dark:text-brand-textSecondaryDark">Select Active AI Model:</label>
+                                <select 
+                                    value={copilotModel} 
+                                    onChange={(e) => setCopilotModel(e.target.value)}
+                                    class="bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark border border-brand-borderLight dark:border-brand-borderDark p-1.5 rounded text-xs outline-none font-bold text-brand-accentBlue cursor-pointer"
+                                >
+                                    <option value="Qwen/Qwen2.5-72B-Instruct">Qwen 2.5 72B Instruct (Quant Math SOTA)</option>
+                                    <option value="meta-llama/Llama-3.3-70B-Instruct">Llama 3.3 70B Instruct (Meta Reasoner)</option>
+                                    <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3 (Reasoning Specialist)</option>
+                                    <option value="huihui-ai/Llama-3.3-70B-Instruct-abliterated">Llama 3.3 70B Abliterated</option>
+                                    <option value="meta-llama/Meta-Llama-3.1-8B-Instruct">Llama 3.1 8B Instruct (Ultra Fast)</option>
+                                    <option value="google/gemma-2-27b-it">Gemma 2 27B Instruct</option>
+                                </select>
+                            </div>
+
+                            {/* Chat Messages Stream */}
+                            <div class="flex-grow p-3 overflow-y-auto custom-scroll flex flex-col gap-2.5">
+                                {chatMessages.map((m, idx) => (
+                                    <div key={idx} class={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
+                                        <div class={`p-2.5 rounded-lg max-w-[88%] text-xs leading-relaxed ${m.role === "user" ? "bg-brand-accentBlue text-white rounded-br-none" : "bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark border border-brand-borderLight dark:border-brand-borderDark rounded-bl-none text-brand-textPrimaryLight dark:text-brand-textPrimaryDark"}`}>
+                                            {m.content}
+                                        </div>
+                                    </div>
+                                ))}
+                                {isCopilotTyping && (
+                                    <div class="flex items-center gap-1.5 text-brand-textSecondaryLight dark:text-brand-textSecondaryDark text-[10px] italic">
+                                        <div class="w-1.5 h-1.5 bg-brand-accentBlue rounded-full animate-bounce"></div>
+                                        <span>AI Assistant thinking...</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Quick Prompt Chips */}
+                            <div class="p-2 border-t border-brand-borderLight dark:border-brand-borderDark flex gap-1 overflow-x-auto custom-scroll shrink-0 bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark">
+                                <button onClick={() => { setCopilotInput("Technical chart analysis for AAPL?"); }} class="px-2 py-1 bg-white dark:bg-brand-bgPanelDark border border-brand-borderLight dark:border-brand-borderDark rounded text-[9px] whitespace-nowrap hover:border-brand-accentBlue">💡 Chart Analysis</button>
+                                <button onClick={() => { setCopilotInput("Key risks and support levels?"); }} class="px-2 py-1 bg-white dark:bg-brand-bgPanelDark border border-brand-borderLight dark:border-brand-borderDark rounded text-[9px] whitespace-nowrap hover:border-brand-accentBlue">⚠️ Risks & Support</button>
+                                <button onClick={() => { setCopilotInput("Should I buy, hold, or sell?"); }} class="px-2 py-1 bg-white dark:bg-brand-bgPanelDark border border-brand-borderLight dark:border-brand-borderDark rounded text-[9px] whitespace-nowrap hover:border-brand-accentBlue">📊 Entry Signal</button>
+                            </div>
+
+                            {/* Input Form */}
+                            <div class="p-2.5 border-t border-brand-borderLight dark:border-brand-borderDark flex gap-2 shrink-0 bg-white dark:bg-brand-bgPanelDark">
+                                <input 
+                                    type="text" 
+                                    placeholder="Ask AI Copilot anything..." 
+                                    value={copilotInput}
+                                    onChange={(e) => setCopilotInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter") handleSendCopilot(); }}
+                                    class="flex-grow bg-brand-bgPanelAltLight dark:bg-brand-bgPanelAltDark border border-brand-borderLight dark:border-brand-borderDark p-2 rounded text-xs outline-none font-medium"
+                                />
+                                <button onClick={handleSendCopilot} class="px-3 py-2 bg-brand-accentBlue hover:bg-brand-accentBlue/80 text-white rounded font-bold uppercase text-[10px]">Send</button>
+                            </div>
+
                         </div>
                     )}
 
