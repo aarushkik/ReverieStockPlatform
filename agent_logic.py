@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import logging
 from google import genai
 
@@ -359,3 +360,87 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
 
     # Heuristic smart fallback response
     return f"[{model_name}] Market Copilot Note: Ticker {context_ticker} is currently consolidating. For {user_query.lower()}, evaluate SMA20 vs SMA60 crossovers, volume momentum, and broader sector news catalysts."
+
+def calculate_black_scholes_greeks(S: float, K: float, T: float, r: float = 0.05, sigma: float = 0.30, option_type: str = "call") -> dict:
+    """
+    Calculates Black-Scholes theoretical Option Price and Greeks (Delta, Gamma, Theta, Vega, Rho).
+    S: Current Stock Price
+    K: Strike Price
+    T: Time to Expiration in Years (e.g. 30 days = 30/365)
+    r: Risk-free Interest Rate (e.g. 0.05 = 5%)
+    sigma: Annualized Volatility (e.g. 0.30 = 30%)
+    """
+    if S <= 0 or K <= 0 or T <= 0 or sigma <= 0:
+        return {"price": 0.0, "delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0}
+        
+    try:
+        def norm_cdf(x):
+            return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+            
+        def norm_pdf(x):
+            return math.exp(-0.5 * x * x) / math.sqrt(2.0 * math.pi)
+
+        d1 = (math.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+        d2 = d1 - sigma * math.sqrt(T)
+
+        if option_type.lower() == "call":
+            price = S * norm_cdf(d1) - K * math.exp(-r * T) * norm_cdf(d2)
+            delta = norm_cdf(d1)
+            rho = K * T * math.exp(-r * T) * norm_cdf(d2) / 100.0
+            theta = (-S * norm_pdf(d1) * sigma / (2 * math.sqrt(T)) - r * K * math.exp(-r * T) * norm_cdf(d2)) / 365.0
+        else:
+            price = K * math.exp(-r * T) * norm_cdf(-d2) - S * norm_cdf(-d1)
+            delta = norm_cdf(d1) - 1.0
+            rho = -K * T * math.exp(-r * T) * norm_cdf(-d2) / 100.0
+            theta = (-S * norm_pdf(d1) * sigma / (2 * math.sqrt(T)) + r * K * math.exp(-r * T) * norm_cdf(-d2)) / 365.0
+
+        gamma = norm_pdf(d1) / (S * sigma * math.sqrt(T))
+        vega = S * norm_pdf(d1) * math.sqrt(T) / 100.0
+
+        return {
+            "price": round(price, 2),
+            "delta": round(delta, 4),
+            "gamma": round(gamma, 4),
+            "theta": round(theta, 4),
+            "vega": round(vega, 4),
+            "rho": round(rho, 4)
+        }
+    except Exception:
+        return {"price": 0.0, "delta": 0.0, "gamma": 0.0, "theta": 0.0, "vega": 0.0, "rho": 0.0}
+
+def query_wolfram_engine(query_str: str) -> dict:
+    """
+    Queries Wolfram Alpha API for symbolic financial math, derivative valuation,
+    and quantitative equations.
+    """
+    app_id = os.environ.get("WOLFRAM_APP_ID")
+    if not app_id or app_id.startswith("YOUR_"):
+        return {
+            "success": False,
+            "result": "Wolfram Engine requires WOLFRAM_APP_ID in .env",
+            "source": "fallback"
+        }
+        
+    try:
+        import requests
+        url = "https://api.wolframalpha.com/v1/result"
+        params = {"appid": app_id, "i": query_str}
+        res = requests.get(url, params=params, timeout=10)
+        if res.status_code == 200:
+            return {
+                "success": True,
+                "result": res.text.strip(),
+                "source": "wolfram_alpha"
+            }
+        else:
+            return {
+                "success": False,
+                "result": f"Wolfram returned status {res.status_code}",
+                "source": "wolfram_alpha"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "result": str(e),
+            "source": "wolfram_alpha"
+        }
