@@ -3085,6 +3085,7 @@ with st.sidebar:
         "Select Active AI Model:",
         [
             "Qwen/Qwen2.5-72B-Instruct",
+            "Wolfram|Alpha Conversational LLM",
             "meta-llama/Llama-3.3-70B-Instruct",
             "deepseek-ai/DeepSeek-V3",
             "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
