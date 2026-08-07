@@ -444,3 +444,48 @@ def query_wolfram_engine(query_str: str) -> dict:
             "result": str(e),
             "source": "wolfram_alpha"
         }
+
+def generate_perfect_corp_ai_media(prompt_text: str, mode: str = "text-to-image") -> dict:
+    """
+    Generates AI visual graphics & enhanced media using Perfect Corp.'s Generative AI API (Reverie Hacks).
+    """
+    api_key = os.environ.get("PERFECT_CORP_API_KEY")
+    if not api_key or api_key.startswith("YOUR_"):
+        return {
+            "success": False,
+            "message": "Perfect Corp API requires PERFECT_CORP_API_KEY in .env",
+            "image_url": None
+        }
+        
+    try:
+        import requests
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        url = "https://yce.perfectcorp.com/api/v1/generative/text-to-image"
+        payload = {
+            "prompt": prompt_text,
+            "aspect_ratio": "16:9",
+            "style": "fintech_infographic"
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=15)
+        if res.status_code == 200:
+            data = res.json()
+            return {
+                "success": True,
+                "image_url": data.get("image_url") or data.get("url"),
+                "message": "AI Graphic generated via Perfect Corp API"
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Perfect Corp API returned status {res.status_code}",
+                "image_url": None
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e),
+            "image_url": None
+        }
