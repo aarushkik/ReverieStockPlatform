@@ -251,7 +251,7 @@ load_env_file()
 st.set_page_config(
     page_title="STOCKMARKET TERMINAL",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # ==============================================================================
@@ -634,6 +634,7 @@ current_tab = st.session_state["current_tab"]
 _nav_links = ""
 for _tid, _tname in [
     ("MARKET_HOME", "MARKET HOME"),
+    ("AI_COPILOT", "🤖 AI COPILOT"),
     ("NEWS", "NEWS"),
     ("MARKETS", "MARKETS"),
     ("RESEARCH", "RESEARCH"),
@@ -662,8 +663,8 @@ st.html(
     f'justify-content:flex-start;padding:0 24px;'
     f'box-shadow:0px 2px 8px rgba(0,0,0,0.3);'
     f'font-family:\'Inter\',-apple-system,sans-serif;box-sizing:border-box;">'
-    f'<div style="font-size:14px;font-weight:700;color:#FFFFFF;'
-    f'letter-spacing:1.5px;margin-right:32px;text-transform:uppercase;">QUANTVIZ TERMINAL</div>'
+    f'<div style="font-size:14px;font-weight:700;color:#58A6FF;'
+    f'letter-spacing:1.5px;margin-right:32px;text-transform:uppercase;">📈 STOCKMARKET TERMINAL</div>'
     f'<div style="display:flex;gap:4px;height:100%;align-items:center;">'
     f'{_nav_links}'
     f'</div></div>'
@@ -1878,6 +1879,70 @@ if current_tab == "MARKET_HOME":
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TAB: AI COPILOT ASSISTANT
+# ──────────────────────────────────────────────────────────────────────────────
+elif current_tab == "AI_COPILOT":
+    st.subheader("🤖 AI Market Copilot & Quantitative Reasoning Suite")
+    st.caption("Interact directly with your multi-model AI assistant powered by Featherless AI, Wolfram, and Gemini:")
+    
+    col_c1, col_c2 = st.columns([1.2, 2.8])
+    with col_c1:
+        st.markdown("""
+        <div class="fintech-card">
+            <div style="font-size:14px; font-weight:700; color:#FFFFFF; margin-bottom:8px;">⚡ Quick Prompt Triggers</div>
+            <p style="color:#8A94A6; font-size:12px; line-height:1.4;">Click any prompt to instantly run technical analysis or options risk scans:</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        qp_1 = st.button("📊 Analyze AAPL Technical Crossovers", use_container_width=True)
+        qp_2 = st.button("🛡️ Compute Risk & Max Position Caps", use_container_width=True)
+        qp_3 = st.button("🧮 Run Black-Scholes Options Greeks", use_container_width=True)
+        qp_4 = st.button("📰 Summarize Market Catalyst News", use_container_width=True)
+        
+        target_prompt = ""
+        if qp_1:
+            target_prompt = "What is the current technical setup for AAPL based on SMA 20 vs SMA 60 and RSI?"
+        elif qp_2:
+            target_prompt = "Calculate position sizing limits and volatility caps for TSLA."
+        elif qp_3:
+            target_prompt = "Explain how Black-Scholes Delta, Gamma, Theta, and Vega protect an options trade."
+        elif qp_4:
+            target_prompt = "What are the key market catalysts and news sentiment driving tech stocks today?"
+
+    with col_c2:
+        if "main_chat_messages" not in st.session_state:
+            st.session_state["main_chat_messages"] = [
+                {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, options Greeks, or trading risks!"}
+            ]
+            
+        main_chat_container = st.container(height=500)
+        with main_chat_container:
+            for msg in st.session_state["main_chat_messages"]:
+                st.chat_message(msg["role"]).write(msg["content"])
+                
+        user_main_input = st.chat_input("Ask AI Copilot about stocks, technicals, or options...")
+        prompt_to_send = target_prompt or user_main_input
+        
+        if prompt_to_send:
+            st.session_state["main_chat_messages"].append({"role": "user", "content": prompt_to_send})
+            with main_chat_container:
+                st.chat_message("user").write(prompt_to_send)
+                
+            selected_m = st.session_state.get("sidebar_model_select", "Qwen/Qwen2.5-72B-Instruct")
+            cur_ticker = st.session_state.get("active_ticker", "AAPL")
+            with st.spinner(f"Reasoning via {selected_m}..."):
+                reply = chat_with_ai_copilot(
+                    user_query=prompt_to_send,
+                    chat_history=st.session_state["main_chat_messages"],
+                    model_name=selected_m,
+                    context_ticker=cur_ticker
+                )
+            st.session_state["main_chat_messages"].append({"role": "assistant", "content": reply})
+            with main_chat_container:
+                st.chat_message("assistant").write(reply)
+            st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # TAB 3: NEWS
