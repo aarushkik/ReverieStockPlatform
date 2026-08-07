@@ -326,6 +326,29 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
             
     messages.append({"role": "user", "content": user_query})
     
+    # Wolfram LLM / Conversational Engine check
+    wolfram_llm_key = os.environ.get("WOLFRAM_LLM_API_KEY") or os.environ.get("WOLFRAM_APP_ID")
+    if "Wolfram" in model_name or (wolfram_llm_key and not wolfram_llm_key.startswith("YOUR_") and "wolfram" in user_query.lower()):
+        try:
+            import requests
+            url = "https://api.wolframalpha.com/v1/conversation.jsp"
+            params = {
+                "appid": wolfram_llm_key,
+                "i": f"Regarding stock ticker {context_ticker}: {user_query}"
+            }
+            res = requests.get(url, params=params, timeout=12)
+            if res.status_code == 200:
+                data = res.json()
+                if data.get("result"):
+                    return f"[Wolfram|Alpha LLM Engine]\n\n{data['result']}"
+            
+            url_res = "https://api.wolframalpha.com/v1/result"
+            res2 = requests.get(url_res, params={"appid": wolfram_llm_key, "i": f"{context_ticker} {user_query}"}, timeout=10)
+            if res2.status_code == 200:
+                return f"[Wolfram|Alpha Quant LLM]\n\n{res2.text.strip()}"
+        except Exception as e:
+            logger.warning(f"Wolfram LLM copilot call failed: {e}")
+
     featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     if featherless_key and not featherless_key.startswith("YOUR_"):
         try:
