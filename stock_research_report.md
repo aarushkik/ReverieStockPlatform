@@ -3,16 +3,16 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-05 16:30:35*
+*Report generated on: 2026-08-05 22:14:22*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Neutral** outlook with **60%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Neutral** outlook with **72%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Neutral (60% Confidence)
+### AAPL - Neutral (72% Confidence)
 
 **Last Close:** $311.00 (+0.52%)  
 **Technical Indicators:** 5-Day SMA: $313.23 | 20-Day SMA: $323.72 | 60-Day SMA: $308.01  
@@ -20,22 +20,22 @@ The research agent has evaluated **AAPL**. The stock is presenting a **Neutral**
 **Sentiment Scored:** Neutral (Rating: 0.10)  
 
 **Agent Evaluation Summary:**  
-["Apple's stock (AAPL) is currently showing a neutral trend with slight recovery from recent declines, but faces short-term downward pressure from the 20-day SMA.", "Investors should be cautious due to high volatility and mixed news, which could affect the stock's performance in the near term."]
+AAPL exhibits a neutral technical structure. The stock is consolidating without a strong directional catalyst in either technical indicators or recent news.
 
 #### 🟢 Key Bullish Catalysts
-- The recent price action shows a slight recovery from a 5-day decline, but the 20-day SMA is still above the current price, indicating a short-term downward pressure.
-- The neutral sentiment rating and mixed news headlines suggest that there is no strong bullish or bearish momentum driving the stock at the moment.
+- Stock exhibits price stabilization near recent support zones.
+- Price action is trading inside historical ranges, indicating market consolidation.
 
 #### 🔴 Key Bearish Risks & Warnings
-- High annualized volatility indicates significant price fluctuations, which can lead to increased risk for investors.
-- Negative news regarding Apple's search for cheaper memory and the departure of Tim Cook could impact investor sentiment and stock performance.
+- Elevated price volatility (annualized at 37.5%) signals high potential for sudden, unpredictable price swings.
+- Recent short-term selling pressure is high with a decline of -8.04% over the last 5 trading days.
 
 #### 📰 Recent Headlines Feed
 - **Aug 05, 2026** - [Price hikes on consumer electronics could be here to stay. Here's why.](https://finance.yahoo.com/video/price-hikes-consumer-electronics-could-195601126.html) (*Yahoo Finance Video*)
+- **Aug 06, 2026** - [Divorced at 60 With Half the Savings You Planned On. These 3 ETFs Help Rebuild a Retirement](https://finance.yahoo.com/markets/options/articles/divorced-60-half-savings-planned-040512086.html) (*24/7 Wall St.*)
+- **Aug 06, 2026** - [Apple Seeks Injunction Against OpenAI in Trade Secrets Lawsuit, Says It Faces 'Irreparable Harm'— Jim Cramer Says 'Gloves Off'](https://finance.yahoo.com/technology/ai/articles/apple-seeks-injunction-against-openai-023111508.html) (*Benzinga*)
 - **Aug 05, 2026** - [The Calm Surface of Alphabet Stock Hides a Turbulent Forecast](https://finance.yahoo.com/markets/options/articles/calm-surface-alphabet-stock-hides-203316161.html) (*Trefis*)
 - **Aug 05, 2026** - [SpaceX’s $1T Goal and 3 More Shockers From Musk on the Earnings Call](https://www.barrons.com/articles/spacex-stock-elon-musk-earnings-ai-89d68b40?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
-- **Aug 05, 2026** - [Spain's 'Warren Buffett' Bets Against the Crowd--and It's Paying Off](https://finance.yahoo.com/markets/stocks/articles/spains-warren-buffett-bets-against-192624264.html) (*GuruFocus.com*)
-- **Aug 05, 2026** - [Apple's Search for Cheaper Memory Just Hit a Wall](https://finance.yahoo.com/markets/stocks/articles/apples-search-cheaper-memory-just-183310958.html) (*GuruFocus.com*)
 
 ---
 
