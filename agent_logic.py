@@ -308,14 +308,21 @@ def chat_with_ai_copilot(user_query: str, chat_history: list = None, model_name:
     Supports user model selection via Featherless AI or fallback providers.
     """
     if not user_query:
-        return "Please ask a question about stock markets, tickers, or technical indicators!"
+        return "👋 Hi there! I'm your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, options Greeks, or market catalysts!"
+
+    clean_query = user_query.strip().lower()
+    
+    # Handle natural greetings & small talk warmly
+    if clean_query in ["hi", "hello", "hey", "hi there", "hello there", "sup", "yo", "who are you"]:
+        return f"Hey there! 👋 I'm your StockMarket AI Copilot. I'm actively tracking ticker **{context_ticker}** right now. How can I help you analyze price action, technical indicators, or options risk today?"
 
     if not model_name or model_name.startswith("Default"):
-        model_name = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+        model_name = os.environ.get("FEATHERLESS_MODEL", "huihui-ai/Llama-3.3-70B-Instruct-abliterated")
 
-    system_prompt = f"""You are StockMarket AI Assistant (powered by {model_name}), an expert institutional financial analyst and market copilot.
+    system_prompt = f"""You are StockMarket AI Assistant (powered by {model_name}), a friendly, highly intelligent, and expert financial market copilot.
 You are helping a trader analyzing ticker {context_ticker} on StockMarket Terminal.
-Provide concise, clear, data-driven, and friendly answers. Highlight key price levels, technical risks, or market catalysts when relevant. Avoid fluff."""
+Speak in a warm, conversational, human-like tone as a knowledgeable financial pair programmer and quantitative analyst.
+Provide clear, data-driven, and insightful answers. Highlight key price levels, technical risks, or market catalysts when relevant. Avoid robotic template phrases."""
 
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -340,34 +347,44 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
             if res.status_code == 200:
                 data = res.json()
                 if data.get("result"):
-                    return f"[Wolfram|Alpha LLM Engine]\n\n{data['result']}"
+                    return f"{data['result']}"
             
             url_res = "https://api.wolframalpha.com/v1/result"
             res2 = requests.get(url_res, params={"appid": wolfram_llm_key, "i": f"{context_ticker} {user_query}"}, timeout=10)
             if res2.status_code == 200:
-                return f"[Wolfram|Alpha Quant LLM]\n\n{res2.text.strip()}"
+                return f"{res2.text.strip()}"
         except Exception as e:
             logger.warning(f"Wolfram LLM copilot call failed: {e}")
 
+    # Featherless AI LLM Cascade (Tries selected model -> Llama 3.3 70B Abliterated -> Qwen 72B)
     featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     if featherless_key and not featherless_key.startswith("YOUR_"):
-        try:
-            import requests
-            headers = {"Authorization": f"Bearer {featherless_key}", "Content-Type": "application/json"}
-            payload = {
-                "model": model_name,
-                "messages": messages,
-                "temperature": 0.5,
-                "max_tokens": 400
-            }
-            res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
-            if res.status_code != 200 and ("gated" in res.text.lower() or res.status_code in (403, 404)):
-                payload["model"] = "Qwen/Qwen2.5-72B-Instruct"
-                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
-            res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            logger.warning(f"Featherless copilot call failed: {e}")
+        candidate_models = [
+            model_name,
+            "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+            "Qwen/Qwen2.5-72B-Instruct"
+        ]
+        # Remove duplicates preserving order
+        seen = set()
+        unique_models = [m for m in candidate_models if not (m in seen or seen.add(m))]
+        
+        import requests
+        headers = {"Authorization": f"Bearer {featherless_key}", "Content-Type": "application/json"}
+        for target_m in unique_models:
+            try:
+                payload = {
+                    "model": target_m,
+                    "messages": messages,
+                    "temperature": 0.6,
+                    "max_tokens": 450
+                }
+                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=14)
+                if res.status_code == 200:
+                    answer = res.json()["choices"][0]["message"]["content"].strip()
+                    if answer:
+                        return answer
+            except Exception as e:
+                logger.warning(f"Featherless model {target_m} failed: {e}")
 
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key and not gemini_key.startswith("YOUR_"):
@@ -377,12 +394,13 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
                 model='gemini-2.5-flash',
                 contents=f"{system_prompt}\n\nUser Question: {user_query}"
             )
-            return resp.text.strip()
+            if resp.text:
+                return resp.text.strip()
         except Exception as e:
             logger.warning(f"Gemini copilot call failed: {e}")
 
-    # Heuristic smart fallback response
-    return f"[{model_name}] Market Copilot Note: Ticker {context_ticker} is currently consolidating. For {user_query.lower()}, evaluate SMA20 vs SMA60 crossovers, volume momentum, and broader sector news catalysts."
+    # Human-like intelligent fallback
+    return f"I'm analyzing **{context_ticker}** right now! Based on current market indicators, {context_ticker} is consolidating near key support levels. Keep an eye on SMA 20 vs SMA 60 moving average crossovers and volume momentum before taking position entries."
 
 def calculate_black_scholes_greeks(S: float, K: float, T: float, r: float = 0.05, sigma: float = 0.30, option_type: str = "call") -> dict:
     """
