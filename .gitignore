@@ -1,6 +1,10 @@
 .env
 __pycache__/
 *.pyc
+*.cpython-*.pyc
 .DS_Store
 .devswarm-temp/
 .aider*
+.venv/
+ReverieStockPlatform/
+
