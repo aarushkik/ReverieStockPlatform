@@ -3,39 +3,40 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-05 22:14:22*
+*Report generated on: 2026-08-07 20:49:06*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Neutral** outlook with **72%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Bearish** outlook with **60%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Neutral (72% Confidence)
+### AAPL - Bearish (60% Confidence)
 
-**Last Close:** $311.00 (+0.52%)  
-**Technical Indicators:** 5-Day SMA: $313.23 | 20-Day SMA: $323.72 | 60-Day SMA: $308.01  
-**Volatility:** 37.5% (High)  
-**Sentiment Scored:** Neutral (Rating: 0.10)  
+**Last Close:** $313.33 (+0.29%)  
+**Technical Indicators:** 5-Day SMA: $309.91 | 20-Day SMA: $323.43 | 60-Day SMA: $308.64  
+**Volatility:** 37.4% (High)  
+**Sentiment Scored:** Neutral (Rating: -0.10)  
 
 **Agent Evaluation Summary:**  
-AAPL exhibits a neutral technical structure. The stock is consolidating without a strong directional catalyst in either technical indicators or recent news.
+["Apple's stock has experienced mixed signals recently, with short-term gains but longer-term declines.", 'Investors should be cautious due to high volatility and potential impacts from supply chain issues and legal disputes.', 'The overall outlook suggests a need for careful consideration before making investment decisions.']
 
 #### 🟢 Key Bullish Catalysts
-- Stock exhibits price stabilization near recent support zones.
-- Price action is trading inside historical ranges, indicating market consolidation.
+- The stock's recent price change shows a decline over the 20-day period, indicating potential downward momentum.
+- The annualized volatility is high at 37.4%, which could lead to unpredictable price swings.
+- News headlines mention supply constraints and margin concerns, which might negatively impact future earnings.
 
 #### 🔴 Key Bearish Risks & Warnings
-- Elevated price volatility (annualized at 37.5%) signals high potential for sudden, unpredictable price swings.
-- Recent short-term selling pressure is high with a decline of -8.04% over the last 5 trading days.
+- High volatility poses a significant risk to investors, as it can result in substantial losses if not managed properly.
+- Ongoing legal battles and increasing competition in the tech industry may further affect the stock's performance.
 
 #### 📰 Recent Headlines Feed
-- **Aug 05, 2026** - [Price hikes on consumer electronics could be here to stay. Here's why.](https://finance.yahoo.com/video/price-hikes-consumer-electronics-could-195601126.html) (*Yahoo Finance Video*)
-- **Aug 06, 2026** - [Divorced at 60 With Half the Savings You Planned On. These 3 ETFs Help Rebuild a Retirement](https://finance.yahoo.com/markets/options/articles/divorced-60-half-savings-planned-040512086.html) (*24/7 Wall St.*)
-- **Aug 06, 2026** - [Apple Seeks Injunction Against OpenAI in Trade Secrets Lawsuit, Says It Faces 'Irreparable Harm'— Jim Cramer Says 'Gloves Off'](https://finance.yahoo.com/technology/ai/articles/apple-seeks-injunction-against-openai-023111508.html) (*Benzinga*)
-- **Aug 05, 2026** - [The Calm Surface of Alphabet Stock Hides a Turbulent Forecast](https://finance.yahoo.com/markets/options/articles/calm-surface-alphabet-stock-hides-203316161.html) (*Trefis*)
-- **Aug 05, 2026** - [SpaceX’s $1T Goal and 3 More Shockers From Musk on the Earnings Call](https://www.barrons.com/articles/spacex-stock-elon-musk-earnings-ai-89d68b40?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
+- **Aug 07, 2026** - [OpenAI developing $300+ AI speaker to challenge Amazon Alexa](https://finance.yahoo.com/video/openai-developing-300-ai-speaker-202000842.html) (*Yahoo Finance Video*)
+- **Aug 07, 2026** - [What we know about OpenAI's upcoming handheld device: Bloomberg](https://finance.yahoo.com/video/know-openais-upcoming-handheld-device-140247594.html) (*Yahoo Finance Video*)
+- **Aug 08, 2026** - [Apple (AAPL) Q3 2026 Earnings Call Transcript](https://finance.yahoo.com/markets/stocks/articles/apple-aapl-q3-2026-earnings-013018032.html) (*Motley Fool*)
+- **Aug 08, 2026** - [Apple (AAPL) Tops $10 Billion in India Sales, But Wall Street’s Focus Is on Supply Constraints and Margins](https://finance.yahoo.com/markets/stocks/articles/apple-aapl-tops-10-billion-011329749.html) (*Insider Monkey*)
+- **Aug 07, 2026** - [MP Earnings Show Chinese Rare-Earth Monopoly Is Fading. The Stock Is Up.](https://www.barrons.com/articles/mp-materials-earnings-stock-price-269904ba?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
 
 ---
 

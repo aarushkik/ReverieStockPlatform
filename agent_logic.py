@@ -52,9 +52,18 @@ def run_heuristics(metrics: dict) -> dict:
     if change_60d is not None:
         score += 5 if change_60d > 0 else -5
         
-    # News Sentiment impact (Max +20 / -20)
-    score += int(sentiment_score * 20)
-    
+    # Target Price & Fundamentals evaluation
+    funds = metrics.get("fundamentals") or {}
+    target_price = funds.get("target_mean_price")
+    if target_price and close > 0:
+        upside = ((target_price - close) / close) * 100
+        if upside > 10.0:
+            score += 8
+            reasons.append(f"Wall Street consensus target price of ${target_price:.2f} implies a +{upside:.1f}% upside potential.")
+        elif upside < -10.0:
+            score -= 8
+            risks.append(f"Wall Street target price (${target_price:.2f}) sits below current trading price by {abs(upside):.1f}%.")
+
     # Clip score between 0 and 100
     score = max(0, min(100, score))
     metrics["bullish_score"] = score
@@ -75,8 +84,10 @@ def run_heuristics(metrics: dict) -> dict:
     risks = []
     
     # Generating Reasons
+    if target_price and close > 0 and ((target_price - close) / close) * 100 > 10.0:
+        reasons.append(f"Wall Street consensus price target of ${target_price:.2f} offers a +{((target_price - close)/close)*100:.1f}% implied upside.")
     if close > sma20 and close > sma60:
-        reasons.append(f"Price is trading above key support levels (20-day SMA of ${sma20:.2f} and 60-day SMA of ${sma60:.2f}), signaling a strong medium-to-long term technical uptrend.")
+        reasons.append(f"Price is trading above key support levels (20-day SMA of ${sma20:.2f} and 60-day SMA of ${sma60:.2f}), signaling a strong technical uptrend.")
     if sma5 > sma20:
         reasons.append("Short-term moving average (5-day) is above the 20-day SMA, indicating upward crossover momentum.")
     if change_5d and change_5d > 2.0:
@@ -141,6 +152,7 @@ def run_llm_agent(metrics: dict, api_key: str, provider: str = "gemini") -> dict
     symbol = metrics["symbol"]
     headlines = [n["headline"] for n in metrics.get("news", [])[:10]]
     headlines_str = "\n".join([f"- {h}" for h in headlines]) if headlines else "No recent headlines."
+    funds = metrics.get("fundamentals") or {}
     
     prompt = f"""
 You are a professional Stock Market Research and Prediction Agent.
@@ -148,6 +160,10 @@ Analyze the following stock market data for ticker: {symbol}
 
 ### TECHNICAL AND FINANCIAL DATA:
 - Last Close Price: ${metrics.get('last_close', 'N/A')}
+- Market Cap: ${funds.get('market_cap', 'N/A')}
+- Trailing P/E: {funds.get('trailing_pe', 'N/A')} | Forward P/E: {funds.get('forward_pe', 'N/A')}
+- Target Mean Price: ${funds.get('target_mean_price', 'N/A')} (Analyst Rating: {funds.get('recommendation_key', 'N/A')})
+
 - 1-Day Price Change: {metrics.get('day_change_pct', 0.0):.2f}%
 - 5-Day Price Change: {metrics.get('change_5d_pct', 0.0):.2f}% if available
 - 20-Day Price Change: {metrics.get('change_20d_pct', 0.0):.2f}% if available

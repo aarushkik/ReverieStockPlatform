@@ -634,7 +634,6 @@ current_tab = st.session_state["current_tab"]
 _nav_links = ""
 for _tid, _tname in [
     ("MARKET_HOME", "MARKET HOME"),
-    ("AI_COPILOT", "🤖 AI COPILOT"),
     ("NEWS", "NEWS"),
     ("MARKETS", "MARKETS"),
     ("RESEARCH", "RESEARCH"),
@@ -1159,61 +1158,143 @@ def get_ticker_info(symbol: str) -> dict:
         "day_change_pct": float(fallback_chg)
     }
 
-@st.cache_data(ttl=600)
-def get_rss_news(symbol: str) -> list:
-    """Fetch news headlines from Yahoo Finance RSS feed and calculate phrase-based sentiment."""
-    symbol = symbol.strip().upper()
-    url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            xml_data = resp.read()
-        root = ET.fromstring(xml_data)
-        items = root.findall(".//item")
-        parsed = []
-        
-        pos_phrases = ["beating expectations", "surpassing guidance", "strategic breakthrough", "increased allocation", "upgrade", "growth acceleration", "support holds"]
-        neg_phrases = ["regulatory probe", "supply constraints", "device costs rising", "revenue miss", "guidance cut", "downgrade", "resistance ceiling holds"]
-        
-        for item in items[:10]:
-            title = (item.findtext("title") or "").strip()
-            link = (item.findtext("link") or "").strip()
-            pub_date = (item.findtext("pubDate") or "").strip()
-            source = (item.findtext("source") or "Yahoo Finance").strip()
-            summary_snippet = (item.findtext("description") or "").strip()
+@st.cache_data(ttl=300)
+def get_rss_news(symbol: str = "^GSPC") -> list:
+    """Fetch 30+ news headlines from Yahoo Finance, CNBC, MarketWatch, Finnhub, and Firecrawl."""
+    parsed = []
+    seen_titles = set()
+    
+    pos_phrases = ["bullish", "upgrade", "beat", "record", "growth", "surge", "rally", "profit", "gain", "high", "soar", "positive", "expansion", "dividend"]
+    neg_phrases = ["bearish", "downgrade", "miss", "decline", "fall", "plunge", "loss", "risk", "warning", "drop", "slump", "lawsuit", "cut", "deficit"]
+
+    # Source 1: Yahoo Finance Multi-ticker RSS
+    rss_urls = [
+        f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}",
+        "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,AAPL,NVDA,TSLA,MSFT,AMZN,GOOGL,META",
+        "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+        "http://feeds.marketwatch.com/marketwatch/topstories/"
+    ]
+    
+    for url in rss_urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                xml_data = resp.read()
+            root = ET.fromstring(xml_data)
+            items = root.findall(".//item")
             
-            if not title:
-                continue
+            for item in items:
+                title = (item.findtext("title") or "").strip()
+                link = (item.findtext("link") or "").strip()
+                pub_date = (item.findtext("pubDate") or "").strip()
+                source_elem = item.findtext("source") or ("CNBC" if "cnbc" in url else ("MarketWatch" if "marketwatch" in url else "Yahoo Finance"))
+                summary_snippet = (item.findtext("description") or "").strip()
                 
-            combined_text = (title + " " + summary_snippet).lower()
-            pos_count = sum(1 for phrase in pos_phrases if phrase in combined_text)
-            neg_count = sum(1 for phrase in neg_phrases if phrase in combined_text)
-            
-            total_detected = pos_count + neg_count
-            sa = (pos_count - neg_count) / (total_detected + 1)
-            
-            if sa > 0:
-                badge, bcls = "BULLISH", "sent-bullish"
-            elif sa < 0:
-                badge, bcls = "BEARISH", "sent-bearish"
-            else:
-                badge, bcls = "NEUTRAL", "sent-neutral"
+                # Strip HTML tags from summary snippet if present
+                if "<" in summary_snippet:
+                    try:
+                        from bs4 import BeautifulSoup
+                        summary_snippet = BeautifulSoup(summary_snippet, "html.parser").get_text()
+                    except Exception:
+                        pass
+                        
+                if not title or title.lower() in seen_titles:
+                    continue
+                seen_titles.add(title.lower())
                 
-            parsed.append({
-                "title": title,
-                "link": link,
-                "pub_date": pub_date,
-                "date": pub_date,  # compatibility key
-                "source": source,
-                "summary_snippet": summary_snippet,
-                "sentiment_score": sa,
-                "badge": badge,
-                "class": bcls
+                # Image extraction from media tags or enclosures
+                img_url = ""
+                media_content = item.find("{http://search.yahoo.com/mrss/}content")
+                if media_content is not None and media_content.get("url"):
+                    img_url = media_content.get("url")
+                else:
+                    enclosure = item.find("enclosure")
+                    if enclosure is not None and enclosure.get("url"):
+                        img_url = enclosure.get("url")
+
+                combined_text = (title + " " + summary_snippet).lower()
+                pos_count = sum(1 for w in pos_phrases if w in combined_text)
+                neg_count = sum(1 for w in neg_phrases if w in combined_text)
+                
+                sa = (pos_count - neg_count) / max(1, pos_count + neg_count)
+                if sa > 0.1:
+                    badge, bcls = "BULLISH", "sent-bullish"
+                elif sa < -0.1:
+                    badge, bcls = "BEARISH", "sent-bearish"
+                else:
+                    badge, bcls = "NEUTRAL", "sent-neutral"
+                    
+                parsed.append({
+                    "title": title,
+                    "headline": title,
+                    "link": link,
+                    "url": link,
+                    "pub_date": pub_date,
+                    "time": datetime.now(),
+                    "source": source_elem,
+                    "summary_snippet": summary_snippet[:250],
+                    "summary": summary_snippet[:250],
+                    "sentiment_score": sa,
+                    "badge": badge,
+                    "class": bcls,
+                    "image_url": img_url
+                })
+        except Exception:
+            continue
+            
+    # Source 2: Finnhub API General Market News
+    fh_key = os.environ.get("FINNHUB_API_KEY")
+    if fh_key and not fh_key.startswith("YOUR_"):
+        try:
+            res = requests.get("https://finnhub.io/api/v1/news", params={"category": "general", "token": fh_key}, timeout=5)
+            if res.status_code == 200:
+                for art in res.json()[:15]:
+                    t = art.get("headline", "").strip()
+                    if not t or t.lower() in seen_titles: continue
+                    seen_titles.add(t.lower())
+                    
+                    comb = (t + " " + (art.get("summary") or "")).lower()
+                    pc = sum(1 for w in pos_phrases if w in comb)
+                    nc = sum(1 for w in neg_phrases if w in comb)
+                    sa = (pc - nc) / max(1, pc + nc)
+                    bdg = "BULLISH" if sa > 0.1 else ("BEARISH" if sa < -0.1 else "NEUTRAL")
+                    bcls = "sent-bullish" if bdg == "BULLISH" else ("sent-bearish" if bdg == "BEARISH" else "sent-neutral")
+                    
+                    parsed.append({
+                        "title": t, "headline": t,
+                        "link": art.get("url", ""), "url": art.get("url", ""),
+                        "pub_date": datetime.fromtimestamp(art.get("datetime", time.time())).strftime("%b %d, %H:%M"),
+                        "time": datetime.fromtimestamp(art.get("datetime", time.time())),
+                        "source": art.get("source") or "Finnhub Wire",
+                        "summary_snippet": art.get("summary", "")[:250],
+                        "summary": art.get("summary", "")[:250],
+                        "sentiment_score": sa, "badge": bdg, "class": bcls,
+                        "image_url": art.get("image", "")
+                    })
+        except Exception:
+            pass
+
+    # Source 3: Firecrawl Scraper (if key active)
+    fc_key = os.environ.get("FIRECRAWL_API_KEY")
+    if fc_key and fc_key.strip():
+        fc_news = fetch_firecrawl_news(symbol if symbol != "^GSPC" else "stock market", fc_key.strip())
+        for fn in fc_news:
+            t = fn.get("headline", "")
+            if not t or t.lower() in seen_titles: continue
+            seen_titles.add(t.lower())
+            parsed.insert(0, {
+                "title": t, "headline": t,
+                "link": fn.get("url", ""), "url": fn.get("url", ""),
+                "pub_date": "Live Firecrawl", "time": datetime.now(),
+                "source": fn.get("source", "Firecrawl Wire"),
+                "summary_snippet": fn.get("summary", "")[:250],
+                "summary": fn.get("summary", "")[:250],
+                "sentiment_score": 0.2, "badge": "BULLISH", "class": "sent-bullish",
+                "image_url": fn.get("image_url", "")
             })
-        return parsed
-    except Exception:
-        pass
-    return []
+
+    return parsed
+
 
 import base64
 
@@ -1245,36 +1326,42 @@ def clean_html(s: str) -> str:
 
 def render_rich_news_card(n, idx) -> str:
     from urllib.parse import urlparse
-    dom = urlparse(n.get('link', '')).netloc or "finance.yahoo.com"
-    img_paths = ["assets/news_chart.png", "assets/news_tech.png", "assets/news_corp.png"]
-    img_path = img_paths[idx % 3]
-    img_b64 = get_image_base64(img_path)
+    url = n.get('url') or n.get('link') or '#'
+    headline = n.get('headline') or n.get('title') or 'Market Update Headline'
+    dom = urlparse(url).netloc or "finance.yahoo.com"
     
-    # Split description into nice bullets/sentences for structured captions
-    desc = n.get('summary_snippet', '') or ''
+    img_url = n.get('image_url') or ""
+    if not img_url:
+        img_paths = ["assets/news_chart.png", "assets/news_tech.png", "assets/news_corp.png"]
+        img_url = get_image_base64(img_paths[idx % 3])
+        
+    desc = n.get('summary') or n.get('summary_snippet') or ''
     sentences = [s.strip() for s in desc.split('.') if s.strip()]
     bullet_list = ""
     for s in sentences[:3]:
         bullet_list += f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; line-height: 1.4; font-family: \"Inter\", sans-serif;'>{s}.</li>"
     if not bullet_list:
-        bullet_list = f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; font-family: \"Inter\", sans-serif;'>Latest market catalyst details.</li>"
+        bullet_list = f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; font-family: \"Inter\", sans-serif;'>Latest market catalyst details and analyst takeaways.</li>"
         
-    badge_html = f"""<span class="{n.get('class', 'sent-neutral')}" style="margin-left: auto; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 6px; background: rgba(138,148,166,0.1); border: 1px solid currentColor;">{n.get('badge', 'NEUTRAL')}</span>"""
+    pub_date = n.get('pub_date') or (n.get('time').strftime('%b %d, %H:%M') if hasattr(n.get('time'), 'strftime') else "Recent")
+    badge_text = n.get('badge') or (n.get('sentiment_label') or 'NEUTRAL').upper()
+    
+    badge_html = f"""<span class="pill-neut" style="margin-left: auto; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 2px 6px;">{badge_text}</span>"""
     
     header_html = f"""
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
         <img src="https://www.google.com/s2/favicons?sz=64&domain={dom}" style="width: 18px; height: 18px; border-radius: 3px;" />
         <span style="font-size: 11px; font-weight: 700; color: #FFFFFF; text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">{n.get('source', 'NEWS')}</span>
-        <span style="font-size: 11px; color: #8A94A6;">&middot; {n.get('pub_date', '')}</span>
+        <span style="font-size: 11px; color: #8A94A6;">&middot; {pub_date}</span>
         {badge_html}
     </div>
     """
     
     title_html = f"""
     <div style="margin-bottom: 10px;">
-        <a href="{n.get('link', '#')}" target="_blank" style="font-size: 16px; font-weight: 700; color: #58A6FF; text-decoration: none; font-family: 'Inter', sans-serif; line-height: 1.3; transition: color 0.15s ease-in-out;" 
+        <a href="{url}" target="_blank" style="font-size: 16px; font-weight: 700; color: #58A6FF; text-decoration: none; font-family: 'Inter', sans-serif; line-height: 1.3; transition: color 0.15s ease-in-out;" 
            onmouseover="this.style.color='#00C805'" onmouseout="this.style.color='#58A6FF'">
-            {n.get('title', 'Market Update Headline')}
+            {headline}
         </a>
     </div>
     """
@@ -1286,10 +1373,9 @@ def render_rich_news_card(n, idx) -> str:
     """
 
     if idx % 2 == 0:
-        # Layout 1: Top large hero banner style card (full width image!)
         card_html = f"""
-        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; margin-bottom: 16px; display: flex; flex-direction: column; overflow: hidden; transition: border-color 0.2s ease-in-out;">
-            <img src="{img_b64}" style="width: 100%; height: 210px; object-fit: cover; border-bottom: 1px solid #1E2433;" />
+        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; margin-bottom: 16px; display: flex; flex-direction: column; overflow: hidden;">
+            <img src="{img_url}" style="width: 100%; height: 210px; object-fit: cover; border-bottom: 1px solid #1E2433;" />
             <div style="padding: 16px;">
                 {header_html}
                 {title_html}
@@ -1298,10 +1384,9 @@ def render_rich_news_card(n, idx) -> str:
         </div>
         """
     else:
-        # Layout 2: Tall side-banner style card (image dominates on the left)
         card_html = f"""
-        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; gap: 16px; align-items: stretch; transition: border-color 0.2s ease-in-out;">
-            <img src="{img_b64}" style="width: 220px; height: 150px; border-radius: 4px; object-fit: cover; border: 1px solid #1E2433; flex-shrink: 0;" />
+        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; gap: 16px; align-items: stretch;">
+            <img src="{img_url}" style="width: 220px; height: 150px; border-radius: 4px; object-fit: cover; border: 1px solid #1E2433; flex-shrink: 0;" />
             <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
                 {header_html}
                 {title_html}
@@ -1310,6 +1395,7 @@ def render_rich_news_card(n, idx) -> str:
         </div>
         """
     return card_html
+
 
 def calculate_rsi(close_prices: pd.Series, period: int = 14) -> float:
     P = close_prices.tolist() if isinstance(close_prices, pd.Series) else list(close_prices)
@@ -1640,64 +1726,156 @@ def make_heatmap_chart(df: pd.DataFrame):
     )
     return fig
 
-def make_advanced_chart(df: pd.DataFrame, cutoff_date, sma20_series, sma60_series, sma200_series, rsi_series, macd_line, macd_sig, macd_hist):
-    fdf = df[df.index >= cutoff_date]
+def make_advanced_chart(
+    df: pd.DataFrame,
+    cutoff_date,
+    chart_type="Candlestick",
+    show_ema9=False,
+    show_ema21=False,
+    show_sma20=True,
+    show_sma50=False,
+    show_sma60=True,
+    show_sma200=False,
+    show_bb=False,
+    show_rsi=True,
+    show_macd=True
+):
+    fdf = df[df.index >= cutoff_date].sort_index()
     if fdf.empty:
         return go.Figure()
+        
+    closes = df["Close"]
     
-    sma20 = sma20_series[sma20_series.index >= cutoff_date]
-    sma60 = sma60_series[sma60_series.index >= cutoff_date]
-    sma200 = sma200_series[sma200_series.index >= cutoff_date]
-    rsi = rsi_series[rsi_series.index >= cutoff_date]
-    macd = macd_line[macd_line.index >= cutoff_date]
-    sig = macd_sig[macd_sig.index >= cutoff_date]
-    hist = macd_hist[macd_hist.index >= cutoff_date]
+    sma20 = closes.rolling(20).mean()[closes.index >= cutoff_date]
+    sma50 = closes.rolling(50).mean()[closes.index >= cutoff_date]
+    sma60 = closes.rolling(60).mean()[closes.index >= cutoff_date]
+    sma200 = closes.rolling(200).mean()[closes.index >= cutoff_date]
+    
+    ema9 = closes.ewm(span=9, adjust=False).mean()[closes.index >= cutoff_date]
+    ema21 = closes.ewm(span=21, adjust=False).mean()[closes.index >= cutoff_date]
+    
+    roll20 = closes.rolling(20)
+    bb_mid = roll20.mean()[closes.index >= cutoff_date]
+    std20 = roll20.std()[closes.index >= cutoff_date]
+    bb_upper = bb_mid + (2.0 * std20)
+    bb_lower = bb_mid - (2.0 * std20)
+    
+    vol_sma20 = df["Volume"].rolling(20).mean()[df.index >= cutoff_date]
+    
+    # RSI calculation
+    delta = closes.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+    rs = gain / (loss + 1e-9)
+    rsi_series = (100 - (100 / (1 + rs)))[closes.index >= cutoff_date]
+    
+    # MACD calculation
+    ema12 = closes.ewm(span=12, adjust=False).mean()
+    ema26 = closes.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
+    macd_hist = macd_line - macd_signal
+    
+    m_line = macd_line[closes.index >= cutoff_date]
+    m_sig = macd_signal[closes.index >= cutoff_date]
+    m_h = macd_hist[closes.index >= cutoff_date]
+    
+    # Subplot row budgeting
+    rows = 2
+    row_heights = [0.65, 0.15]
+    if show_rsi:
+        rows += 1
+        row_heights.append(0.10)
+    if show_macd:
+        rows += 1
+        row_heights.append(0.10)
+        
+    tot_h = sum(row_heights)
+    row_heights = [h / tot_h for h in row_heights]
     
     fig = make_subplots(
-        rows=2, cols=1,
+        rows=rows, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.04,
-        row_heights=[0.8, 0.2]
+        vertical_spacing=0.03,
+        row_heights=row_heights
     )
     
-    # 1. Candlestick
-    fig.add_trace(go.Candlestick(
-        x=fdf.index, open=fdf["Open"], high=fdf["High"], low=fdf["Low"], close=fdf["Close"],
-        name="Price",
-        increasing=dict(line=dict(color="#00C805", width=2), fillcolor="#00C805"),
-        decreasing=dict(line=dict(color="#FF3B30", width=2), fillcolor="#FF3B30")
-    ), row=1, col=1)
-    
-    fig.add_trace(go.Scatter(x=sma20.index, y=sma20, name="SMA 20", line=dict(color="rgba(88,166,255,0.6)", width=1.5)), row=1, col=1)
-    fig.add_trace(go.Scatter(x=sma60.index, y=sma60, name="SMA 60", line=dict(color="rgba(139,148,158,0.5)", width=1.5)), row=1, col=1)
-    if not sma200.dropna().empty:
-        fig.add_trace(go.Scatter(x=sma200.index, y=sma200, name="SMA 200", line=dict(color="rgba(245,166,35,0.6)", width=1.5, dash="dot")), row=1, col=1)
+    # Row 1: Main Price Track
+    if chart_type == "Candlestick":
+        fig.add_trace(go.Candlestick(
+            x=fdf.index, open=fdf["Open"], high=fdf["High"], low=fdf["Low"], close=fdf["Close"],
+            name="Price",
+            increasing=dict(line=dict(color="#00C805", width=1.5), fillcolor="#00C805"),
+            decreasing=dict(line=dict(color="#FF3B30", width=1.5), fillcolor="#FF3B30")
+        ), row=1, col=1)
+    else:
+        fig.add_trace(go.Scatter(
+            x=fdf.index, y=fdf["Close"],
+            name="Close Price", line=dict(color="#58A6FF", width=2.5),
+            fill='tozeroy', fillcolor='rgba(88,166,255,0.08)'
+        ), row=1, col=1)
         
-    # 2. Volume
+    if show_ema9:
+        fig.add_trace(go.Scatter(x=ema9.index, y=ema9, name="EMA 9", line=dict(color="#00E676", width=1.5)), row=1, col=1)
+    if show_ema21:
+        fig.add_trace(go.Scatter(x=ema21.index, y=ema21, name="EMA 21", line=dict(color="#FFB020", width=1.5)), row=1, col=1)
+    if show_sma20:
+        fig.add_trace(go.Scatter(x=sma20.index, y=sma20, name="SMA 20", line=dict(color="rgba(88,166,255,0.8)", width=1.5)), row=1, col=1)
+    if show_sma50:
+        fig.add_trace(go.Scatter(x=sma50.index, y=sma50, name="SMA 50", line=dict(color="rgba(186,104,200,0.8)", width=1.5)), row=1, col=1)
+    if show_sma60:
+        fig.add_trace(go.Scatter(x=sma60.index, y=sma60, name="SMA 60", line=dict(color="rgba(139,148,158,0.7)", width=1.5)), row=1, col=1)
+    if show_sma200:
+        fig.add_trace(go.Scatter(x=sma200.index, y=sma200, name="SMA 200", line=dict(color="rgba(245,166,35,0.9)", width=1.5, dash="dot")), row=1, col=1)
+        
+    if show_bb:
+        fig.add_trace(go.Scatter(x=bb_upper.index, y=bb_upper, name="BB Upper", line=dict(color="rgba(88,166,255,0.4)", width=1, dash="dash")), row=1, col=1)
+        fig.add_trace(go.Scatter(x=bb_lower.index, y=bb_lower, name="BB Lower", line=dict(color="rgba(88,166,255,0.4)", width=1, dash="dash"), fill='tonexty', fillcolor='rgba(88,166,255,0.04)'), row=1, col=1)
+        
+    # Row 2: Volume Subplot
     colors = ["#00C805" if cl >= op else "#FF3B30" for op, cl in zip(fdf["Open"], fdf["Close"])]
     fig.add_trace(go.Bar(
         x=fdf.index, y=fdf["Volume"],
         name="Volume", marker_color=colors, showlegend=False
     ), row=2, col=1)
+    fig.add_trace(go.Scatter(x=vol_sma20.index, y=vol_sma20, name="Vol SMA 20", line=dict(color="rgba(255,255,255,0.6)", width=1)), row=2, col=1)
     
+    current_row = 3
+    if show_rsi:
+        fig.add_trace(go.Scatter(x=rsi_series.index, y=rsi_series, name="RSI (14)", line=dict(color="#E040FB", width=1.5)), row=current_row, col=1)
+        fig.add_hline(y=70, line_dash="dash", line_color="rgba(255,59,48,0.5)", row=current_row, col=1)
+        fig.add_hline(y=30, line_dash="dash", line_color="rgba(0,200,5,0.5)", row=current_row, col=1)
+        fig.update_yaxes(range=[0, 100], tickvals=[30, 70], row=current_row, col=1)
+        current_row += 1
+        
+    if show_macd:
+        fig.add_trace(go.Scatter(x=m_line.index, y=m_line, name="MACD", line=dict(color="#58A6FF", width=1.5)), row=current_row, col=1)
+        fig.add_trace(go.Scatter(x=m_sig.index, y=m_sig, name="Signal", line=dict(color="#FFB020", width=1.5)), row=current_row, col=1)
+        h_colors = ["#00C805" if val >= 0 else "#FF3B30" for val in m_h]
+        fig.add_trace(go.Bar(x=m_h.index, y=m_h, name="Histogram", marker_color=h_colors, showlegend=False), row=current_row, col=1)
+        current_row += 1
+
+    chart_height = 550 + (90 if show_rsi else 0) + (90 if show_macd else 0)
+
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=10, b=10, l=10, r=10), height=550,
+        margin=dict(t=10, b=10, l=10, r=10), height=chart_height,
         dragmode='pan',
         font=dict(color="#8A94A6", family="'Inter', -apple-system, sans-serif", size=11),
         hovermode="x unified"
     )
     fig.update_xaxes(
         showgrid=True, gridcolor="#1E2433", showline=True, linecolor="#2A3142", ticks="outside",
-        showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6"
+        showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6",
+        rangeslider_visible=False
     )
-    fig.update_xaxes(rangeslider_visible=False) # Hide range slider on all subplots
     fig.update_yaxes(
         showgrid=True, gridcolor="#1E2433", side="right", showline=True, linecolor="#2A3142", ticks="outside",
         showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6"
     )
     fig.update_yaxes(tickprefix="$", row=1, col=1)
     return fig
+
 
 # Callback route logic for pattern search
 def route_to_cheat_sheet(pattern_name):
@@ -1945,31 +2123,50 @@ elif current_tab == "AI_COPILOT":
             st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 3: NEWS
+# TAB 3: INSTITUTIONAL NEWS WIRES & MARKET CATALYST ENGINE
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "NEWS":
-    st.subheader("Latest Financial News & Market Catalyst Consensus")
+    st.subheader("📰 Global Financial News & Market Catalyst Engine")
     
+    # 1. Search & Filter Bar
+    n_col1, n_col2 = st.columns([2.5, 1.5])
+    with n_col1:
+        news_query = st.text_input("Search News Wires...", placeholder="Type keywords e.g. Earnings, Fed, Nvidia, Inflation...", key="news_search_input", label_visibility="collapsed")
+    with n_col2:
+        news_filter = st.selectbox("Sentiment Filter", ["All Wires", "Bullish Catalysts", "Bearish Risks"], key="news_filter_select", label_visibility="collapsed")
+
     col_left, col_right = st.columns([2.6, 1.4])
     
-    with st.spinner("Retrieving news wires..."):
-        news = get_rss_news("^GSPC")
+    with st.spinner("Aggregating multi-channel news wires (Yahoo, CNBC, MarketWatch, Finnhub, Firecrawl)..."):
+        raw_news = get_rss_news("^GSPC")
+
+    # Filter news based on search query & sentiment filter
+    filtered_news = raw_news
+    if news_query.strip():
+        q = news_query.strip().lower()
+        filtered_news = [n for n in filtered_news if q in n.get("title", "").lower() or q in n.get("summary_snippet", "").lower() or q in n.get("source", "").lower()]
         
+    if news_filter == "Bullish Catalysts":
+        filtered_news = [n for n in filtered_news if n.get("badge") == "BULLISH"]
+    elif news_filter == "Bearish Risks":
+        filtered_news = [n for n in filtered_news if n.get("badge") == "BEARISH"]
+
     with col_left:
-        if news:
-            for idx, n in enumerate(news):
+        st.caption(f"Displaying **{len(filtered_news)}** verified news wire stories:")
+        if filtered_news:
+            for idx, n in enumerate(filtered_news[:25]):
                 st.html(clean_html(render_rich_news_card(n, idx)))
         else:
-            st.markdown("<div class='fintech-card'><div style='color:#8A94A6; font-size:12px;'>No general news available currently</div></div>", unsafe_allow_html=True)
+            st.markdown("<div class='fintech-card'><div style='color:#8A94A6; font-size:12px;'>No matching news wire stories found for current query.</div></div>", unsafe_allow_html=True)
             
     with col_right:
         st.subheader("Market Sentiment Consensus")
-        if news:
-            scores = [n["sentiment_score"] for n in news]
+        if raw_news:
+            scores = [n["sentiment_score"] for n in raw_news]
             avg_score = sum(scores) / len(scores) if scores else 0.0
-            bullish_cnt = sum(1 for n in news if n["badge"] == "BULLISH")
-            bearish_cnt = sum(1 for n in news if n["badge"] == "BEARISH")
-            neutral_cnt = sum(1 for n in news if n["badge"] == "NEUTRAL")
+            bullish_cnt = sum(1 for n in raw_news if n["badge"] == "BULLISH")
+            bearish_cnt = sum(1 for n in raw_news if n["badge"] == "BEARISH")
+            neutral_cnt = sum(1 for n in raw_news if n["badge"] == "NEUTRAL")
             
             consensus = "MIXED"
             cc_color = "#8A94A6"
@@ -1980,7 +2177,7 @@ elif current_tab == "NEWS":
                 consensus = "BEARISH RISK"
                 cc_color = "#FF3B30"
                 
-            st.markdown(f"""
+            st.html(clean_html(f"""
             <div class="fintech-card" style="margin-bottom:12px;">
                 <div style="font-size:10px; color:#8A94A6; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Average Score Consensus</div>
                 <div style="font-size:24px; font-weight:800; color:{cc_color}; font-family:'JetBrains Mono', monospace; margin-bottom:4px;">{avg_score:+.2f}</div>
@@ -1992,14 +2189,14 @@ elif current_tab == "NEWS":
                     <div><span style="color:#FF3B30; font-weight:700;">{bearish_cnt}</span> Bearish</div>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
+            """))
             
-            # Simple Plotly Gauge Chart for Sentiment
+            # Sentiment Gauge Chart
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = avg_score,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Sentiment Index", 'font': {'size': 11, 'color': '#8A94A6'}},
+                title = {'text': "Market Sentiment Index", 'font': {'size': 11, 'color': '#8A94A6'}},
                 number = {'font': {'color': '#FFFFFF', 'size': 14}},
                 gauge = {
                     'axis': {'range': [-1, 1], 'tickwidth': 1, 'tickcolor': "#8A94A6"},
@@ -2026,32 +2223,37 @@ elif current_tab == "NEWS":
         trending_tickers = ["TSLA", "AAPL", "MSFT", "NVDA", "AMZN", "NFLX", "GOOGL", "META", "JPM", "V"]
         with st.spinner("Syncing watchlist..."):
             tr_prices = get_live_prices_batch(trending_tickers)
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown("""
-        <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
-            <thead>
-                <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase; text-align:left;">
-                    <th style="padding: 12px 14px; background-color: #11151F !important;">Symbol</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Last Price</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Change</th>
-                </tr>
-            </thead>
-            <tbody>
-        """, unsafe_allow_html=True)
+            
+        t_rows = ""
         for tk in trending_tickers:
             info = get_ticker_info(tk)
             chg = info.get("day_change_pct", 0.0) or 0.0
             price = tr_prices.get(tk, info.get("previous_close", 150.0))
             sign = "+" if chg >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
-            st.markdown(f"""
-                <tr style="border-bottom: 1px solid #1E2433;">
-                    <td style="padding: 12px 14px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={tk}" target="_self" style="color:#58A6FF; text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='#00E676'" onmouseout="this.style.color='#58A6FF'">{tk}</a></td>
-                    <td style="padding: 12px 14px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">${price:,.2f}</td>
-                    <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
+            badge_style = "background-color: rgba(0, 230, 118, 0.12); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.25); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace; display:inline-block;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.12); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.25); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace; display:inline-block;"
+            t_rows += f"""
+            <tr style="border-bottom: 1px solid #1E2433;">
+                <td style="padding: 10px 12px; font-weight:700; width:30%;"><a href="/?tab=RESEARCH&ticker={tk}" target="_self" style="color:#58A6FF; text-decoration:none;">{tk}</a></td>
+                <td style="padding: 10px 12px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace; width:40%;">${price:,.2f}</td>
+                <td style="padding: 10px 12px; text-align:right; width:30%;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
+            </tr>
+            """
+            
+        st.html(clean_html(f"""
+        <div class="fintech-card" style="padding:0px !important;">
+        <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
+            <thead>
+                <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase;">
+                    <th style="padding: 10px 12px; text-align:left; background-color: #11151F !important; width:30%;">Symbol</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important; width:40%;">Last Price</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important; width:30%;">Change</th>
                 </tr>
-            """, unsafe_allow_html=True)
-        st.markdown("</tbody></table></div>", unsafe_allow_html=True)
+            </thead>
+            <tbody>{t_rows}</tbody>
+        </table>
+        </div>
+        """))
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "MARKETS":
@@ -2250,25 +2452,45 @@ elif current_tab == "MARKETS":
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 5: AI AGENT RESEARCH
+# TAB 5: AI AGENT RESEARCH & YAHOO FINANCE DATA SUITE
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "RESEARCH":
-    # Search controls
-    st.subheader("Stock Search")
-    sr1, sr2, sr3 = st.columns([3, 1, 1])
+    st.subheader("Stock Search & Technical Workstation")
+    
+    # 1. Main Search & Period Controls
+    sr1, sr2, sr3, sr4 = st.columns([2.5, 1.2, 1.2, 1.1])
     with sr1:
         ticker_input = st.text_input("Ticker Symbol", value=st.session_state.active_ticker, key="ticker_input_search", label_visibility="collapsed")
     with sr2:
-        chart_period = st.selectbox("Timeframe", ["1 Month", "3 Months", "6 Months", "1 Year"], index=2, key="timeframe_search", label_visibility="collapsed")
+        chart_period = st.selectbox("Timeframe", ["1 Month", "3 Months", "6 Months", "1 Year", "5 Years", "Max"], index=3, key="timeframe_search", label_visibility="collapsed")
     with sr3:
-        run_agent = st.button("Run Analytics", width="stretch", key="run_agent_search")
+        chart_type_val = st.selectbox("Chart Type", ["Candlestick", "Line (Area)"], index=0, key="chart_type_search", label_visibility="collapsed")
+    with sr4:
+        run_agent = st.button("Run Analytics", use_container_width=True, key="run_agent_search")
+
+    # 2. Interactive Indicator Toggles
+    with st.expander("⚙️ Customize Technical Indicators & Oscillators", expanded=False):
+        ic1, ic2, ic3, ic4 = st.columns(4)
+        with ic1:
+            t_ema9 = st.checkbox("EMA 9", value=False)
+            t_ema21 = st.checkbox("EMA 21", value=False)
+        with ic2:
+            t_sma20 = st.checkbox("SMA 20", value=True)
+            t_sma50 = st.checkbox("SMA 50", value=False)
+            t_sma60 = st.checkbox("SMA 60", value=True)
+        with ic3:
+            t_sma200 = st.checkbox("SMA 200", value=False)
+            t_bb = st.checkbox("Bollinger Bands (20, 2)", value=False)
+        with ic4:
+            t_rsi = st.checkbox("RSI Oscillator (14)", value=True)
+            t_macd = st.checkbox("MACD (12, 26, 9)", value=True)
 
     # Run analysis block
     if run_agent or "results" not in st.session_state or not st.session_state["results"]:
         symbol = ticker_input.strip().upper()
         if symbol:
             st.session_state["active_ticker"] = symbol
-            with st.spinner(f"Analyzing {symbol}..."):
+            with st.spinner(f"Fetching real-time market data & running AI analytics for {symbol}..."):
                 try:
                     data = get_stock_data(symbol)
                     if data["success"]:
@@ -2299,8 +2521,9 @@ elif current_tab == "RESEARCH":
         acls = res.get("action_class", "badge-hold")
         sign = "+" if ch > 0 else ""
 
-        # Safe Info Lookup
+        # Safe Info Lookup & Fundamentals
         info = get_ticker_info(sym)
+        funds = res.get("fundamentals") or {}
 
         # Header banner
         pill_color = "rgba(0, 200, 5, 0.15)" if ch >= 0 else "rgba(255, 59, 48, 0.15)"
@@ -2308,11 +2531,12 @@ elif current_tab == "RESEARCH":
         
         st.markdown(f"""
         <div class="fintech-card">
-            <div style="display:flex; align-items:baseline; gap:16px;">
+            <div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;">
                 <span style="font-size:24px; font-weight:700; color:#FFFFFF;">{sym}</span>
-                <span style="font-size:14px; color:#8A94A6;">{info['long_name']}</span>
+                <span style="font-size:14px; color:#8A94A6;">{info.get('long_name', sym)}</span>
                 <span style="font-size:28px; font-weight:700; color:#FFFFFF;">${cl:.2f}</span>
                 <span style="background-color:{pill_color}; color:{text_color}; padding:4px 8px; border-radius:4px; font-weight:600; font-size:13px;">{sign}{ch:.2f}%</span>
+                <span style="margin-left:auto; font-size:11px; color:#8A94A6; font-family:'JetBrains Mono', monospace;">Sector: <b style="color:#58A6FF;">{funds.get('sector', 'N/A')}</b> | Industry: <b style="color:#FFFFFF;">{funds.get('industry', 'N/A')}</b></span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2322,167 +2546,249 @@ elif current_tab == "RESEARCH":
             with open("stock_research_report.md", "r") as f:
                 report_data = f.read()
             st.download_button(
-                label="Download Research Report (Markdown)",
+                label="📥 Download Full Research Report (Markdown)",
                 data=report_data,
                 file_name=f"{sym}_research_report.md",
                 mime="text/markdown"
             )
 
-        # 4-Column statistics matrix (Yahoo Finance table style)
-        vol_pct = res.get('volatility', 0.0)
+        # Helper format functions for Yahoo Finance statistics table
+        def f_num(v, prefix="", suffix="", decimals=2):
+            if v is None or (isinstance(v, float) and np.isnan(v)): return "N/A"
+            if isinstance(v, (int, float)):
+                return f"{prefix}{v:,.{decimals}f}{suffix}"
+            return str(v)
+
+        def f_cap(v):
+            if not v or not isinstance(v, (int, float)) or v == 0: return "N/A"
+            if v >= 1e12: return f"${v/1e12:.2f}T"
+            if v >= 1e9: return f"${v/1e9:.2f}B"
+            if v >= 1e6: return f"${v/1e6:.2f}M"
+            return f"${v:,.0f}"
+
+        def f_pct(v):
+            if v is None or not isinstance(v, (int, float)): return "N/A"
+            return f"{v * 100:+.2f}%" if abs(v) < 2.0 else f"{v:+.2f}%"
+
+        # 4-COLUMN COMPREHENSIVE YAHOO FINANCE STATISTICS MATRIX
+        m_cap = funds.get("market_cap") or info.get("market_cap")
+        ev = funds.get("enterprise_value")
+        pe_t = funds.get("trailing_pe") or info.get("pe_ratio")
+        pe_f = funds.get("forward_pe")
+        peg = funds.get("peg_ratio")
+        pb = funds.get("price_to_book")
+        ev_ebitda = funds.get("ev_to_ebitda")
+        
+        prof_m = funds.get("profit_margin")
+        op_m = funds.get("operating_margin")
+        roa = funds.get("return_on_assets")
+        roe = funds.get("return_on_equity")
+        rev_g = funds.get("revenue_growth")
+        
+        t_mean = funds.get("target_mean_price")
+        t_high = funds.get("target_high_price")
+        t_low = funds.get("target_low_price")
+        rec_key = (funds.get("recommendation_key") or "N/A").replace("_", " ").upper()
+        upside_val = ((t_mean - cl)/cl)*100 if t_mean and cl > 0 else None
+        
+        hi_52 = funds.get("fifty_two_week_high") or info.get("fifty_two_high")
+        lo_52 = funds.get("fifty_two_week_low") or info.get("fifty_two_low")
+        beta_val = funds.get("beta") or info.get("beta")
+        short_r = funds.get("short_ratio")
+        div_y = funds.get("dividend_yield")
+        
         st.markdown(f"""
-        <div class="fintech-card" style="padding: 12px !important; margin-bottom: 8px !important;">
+        <div class="fintech-card" style="padding: 14px !important; margin-bottom: 12px !important;">
+            <div style="font-size:12px; font-weight:800; color:#58A6FF; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px; border-bottom:1px solid #1E2433; padding-bottom:6px;">📊 Key Statistics & Financial Valuation Matrix</div>
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
-                <!-- Column 1 -->
+                <!-- Column 1: Valuation -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Previous Close</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['previous_close']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Market Cap</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_cap(m_cap)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Open Price</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['open']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Enterprise Val</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_cap(ev)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Bid Price</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['bid']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Trailing P/E</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pe_t, suffix="x")}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Forward P/E</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pe_f, suffix="x")}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">PEG Ratio</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(peg)}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Ask Price</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['ask']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Price / Book</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pb, suffix="x")}</td>
                     </tr>
                 </table>
-                <!-- Column 2 -->
+                
+                <!-- Column 2: Profitability -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Day's Range</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size: 11px;">${info['day_low']:.2f} - ${info['day_high']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Profit Margin</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(prof_m)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">52-Week Range</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size: 11px;">${info['fifty_two_low']:.2f} - ${info['fifty_two_high']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Oper. Margin</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(op_m)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Volume</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_volume(info['volume'])}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Return on Assets</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(roa)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Return on Equity</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(roe)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Rev Growth YoY</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(rev_g)}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Avg Volume</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_volume(info['avg_volume'])}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">EV / EBITDA</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(ev_ebitda, suffix="x")}</td>
                     </tr>
                 </table>
-                <!-- Column 3 -->
+                
+                <!-- Column 3: Wall St Ratings -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Market Cap</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_market_cap(info['market_cap'])}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Target Mean</td>
+                        <td style="text-align: right; color: #58A6FF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(t_mean, prefix="$")}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Beta (5Y)</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{info['beta']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Target Range</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size:10px;">${f_num(t_low)} - ${f_num(t_high)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">PE Ratio</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{info['pe_ratio']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Implied Upside</td>
+                        <td style="text-align: right; color: {'#00C805' if (upside_val or 0) >= 0 else '#FF3B30'}; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(upside_val)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Analyst Rating</td>
+                        <td style="text-align: right; color: #00E676; font-weight: 800; padding: 6px 0 !important; font-size:11px;">{rec_key}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Analyst Count</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(funds.get('num_analysts'), decimals=0)}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">EPS (TTM)</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['eps']:.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Beta (5Y)</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(beta_val)}</td>
                     </tr>
                 </table>
-                <!-- Column 4 -->
+                
+                <!-- Column 4: Trading Stats -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">14-Day RSI</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{res.get('rsi', 50.0):.1f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">52W Range</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size:10px;">${f_num(lo_52)} - ${f_num(hi_52)}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">20-Day SMA</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${res.get('sma_20', 0.0):.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">50-Day SMA</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(res.get('sma_50') or funds.get('fifty_day_average'), prefix="$")}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">60-Day SMA</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${res.get('sma_60', 0.0):.2f}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">200-Day SMA</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(res.get('sma_200') or funds.get('two_hundred_day_average'), prefix="$")}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Short Ratio</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(short_r)}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #1E2433;">
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Dividend Yield</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(div_y)}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Annualized Vol</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{vol_pct:.1f}%</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Annual Volatility</td>
+                        <td style="text-align: right; color: #FFB020; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{res.get('volatility_pct', 0.0):.1f}%</td>
                     </tr>
                 </table>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Algorithmic Guidance Matrix
-        guidance_label = act
-        g_color = "#00C805" if "BUY" in guidance_label else ("#FF3B30" if "SELL" in guidance_label or "REDUCE" in guidance_label else "#8A94A6")
-        
-        # Breakdown computations
-        ma_diff = ((cl - res["sma_20"]) / res["sma_20"]) * 100 if res["sma_20"] > 0 else 0.0
-        direction = "above" if ma_diff >= 0 else "below"
-        boundary_state = "upward" if ma_diff >= 0 else "downward"
-        s_total = res.get("s_total", 0.0)
-        sentiment_direction = "bullish (positive)" if s_total > 0 else ("bearish (negative)" if s_total < 0 else "neutral")
-        
-        summary_sentence = f"""
-        <b>Short-Term Trend</b>: {sym} is trading <b>{direction}</b> its 20-day average price of ${res.get('sma_20', 0.0):.2f} by <b>{abs(ma_diff):.1f}%</b>. This indicates short-term <b>{boundary_state}</b> momentum.<br><br>
-        <b>News Sentiment</b>: Publisher consensus is <b>{sentiment_direction.upper()}</b> with a score of <b>{s_total:+.2f}</b>, reflecting generally favorable headlines and positive market expectations.
-        """
-
-        vol = res.get("volatility", 0.0)
-        vol_cap = min(25.0, (10.0 / (vol + 1e-9)) * 100) if vol > 0 else 0.0
-
-        rcol1, rcol2 = st.columns([1, 2])
-        with rcol1:
-            st.markdown(f"""
-            <div class="fintech-card" style="text-align:center; min-height: 120px;">
-                <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase;">Algorithmic Guidance</div>
-                <div style="font-size:24px; font-weight:800; color:{g_color}; margin-top:8px;">{guidance_label}</div>
-            </div>
-            """, unsafe_allow_html=True)
-        with rcol2:
-            st.markdown(f"""
-            <div class="fintech-card" style="min-height: 120px;">
-                <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase; margin-bottom:4px;">Micro-Summarization Breakdown</div>
-                <div style="font-size:12px; color:#C9D1D9; line-height:1.4;">{summary_sentence}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown(f"""
-        <div class="fintech-card" style="border-left: 3px solid #00C805; padding: 10px !important;">
-            <div style="font-size:13px; color:#FFFFFF; font-weight:600;">Risk Protocol Status: Current asset exhibits a calculated 60-day annualized volatility metric of {vol:.1f}%. The position-sizing engine advises capping your theoretical capital deployment to exactly {vol_cap:.1f}% of total available portfolio equity balance sheets to shield capital from sudden price flips.</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Advanced multi-pane Plotly Subplot
+        # 5. Interactive Quantitative Chart Engine
         df_prices = res["prices"]
-        sma20_ser = df_prices["Close"].rolling(20).mean()
-        sma60_ser = df_prices["Close"].rolling(60).mean()
-        sma200_ser = df_prices["Close"].rolling(200).mean()
-        
-        # Subplot calculation values
-        macd_val, macd_sig, macd_hist = calculate_macd(df_prices["Close"])
-        ema12 = calculate_ema(df_prices["Close"], 12)
-        ema26 = calculate_ema(df_prices["Close"], 26)
-        macd_line = ema12 - ema26
-        macd_sig_line = calculate_ema(macd_line, 9)
-        macd_hist_line = macd_line - macd_sig_line
-        
-        rsi_series = df_prices["Close"].copy()
-        for idx in range(len(df_prices)):
-            sub_ser = df_prices["Close"].iloc[:idx+1]
-            rsi_series.iloc[idx] = calculate_rsi(sub_ser, 14)
-            
         now = df_prices.index[-1]
         if chart_period == "1 Month": cutoff = now - timedelta(days=30)
         elif chart_period == "3 Months": cutoff = now - timedelta(days=90)
         elif chart_period == "6 Months": cutoff = now - timedelta(days=180)
-        else: cutoff = now - timedelta(days=365)
+        elif chart_period == "1 Year": cutoff = now - timedelta(days=365)
+        elif chart_period == "5 Years": cutoff = now - timedelta(days=365*5)
+        else: cutoff = df_prices.index[0]
 
-        fig_advanced = make_advanced_chart(df_prices, cutoff, sma20_ser, sma60_ser, sma200_ser, rsi_series, macd_line, macd_sig_line, macd_hist_line)
+        fig_advanced = make_advanced_chart(
+            df=df_prices,
+            cutoff_date=cutoff,
+            chart_type=chart_type_val,
+            show_ema9=t_ema9,
+            show_ema21=t_ema21,
+            show_sma20=t_sma20,
+            show_sma50=t_sma50,
+            show_sma60=t_sma60,
+            show_sma200=t_sma200,
+            show_bb=t_bb,
+            show_rsi=t_rsi,
+            show_macd=t_macd
+        )
+        
         st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
         st.plotly_chart(fig_advanced, use_container_width=True, config={"displayModeBar": True, "scrollZoom": True})
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # 6. AI Setup Evaluation Card
+        pred_lbl = res.get("prediction", "Neutral")
+        conf_pct = res.get("confidence_pct", 50)
+        setup_score = res.get("bullish_score", 50)
+        
+        pred_color = "#00C805" if pred_lbl == "Bullish" else ("#FF3B30" if pred_lbl == "Bearish" else "#FFB020")
+        
+        st.markdown(f"""
+        <div class="fintech-card" style="border-left:4px solid {pred_color}; margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-size:16px; font-weight:800; color:{pred_color}; font-family:'Inter', sans-serif;">
+                    🤖 AI Prediction: {pred_lbl.upper()} ({conf_pct}% Confidence)
+                </div>
+                <div style="font-size:13px; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">
+                    Setup Strength: <span style="color:#58A6FF;">{setup_score}/100</span>
+                </div>
+            </div>
+            <p style="color:#FFFFFF; font-size:13px; line-height:1.5; margin-bottom:12px;">{res.get('summary', '')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col_cat1, col_cat2 = st.columns(2)
+        with col_cat1:
+            st.markdown("<div class='fintech-card'>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px; font-weight:700; color:#00C805; margin-bottom:6px;'>🟢 Bullish Catalysts & Key Drivers</div>", unsafe_allow_html=True)
+            for r in res.get("reasons", []):
+                st.markdown(f"<div style='font-size:12px; color:#C9D1D9; margin-bottom:4px;'>• {r}</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+        with col_cat2:
+            st.markdown("<div class='fintech-card'>", unsafe_allow_html=True)
+            st.markdown("<div style='font-size:12px; font-weight:700; color:#FF3B30; margin-bottom:6px;'>🔴 Bearish Warnings & Technical Risks</div>", unsafe_allow_html=True)
+            for r in res.get("risks", []):
+                st.markdown(f"<div style='font-size:12px; color:#C9D1D9; margin-bottom:4px;'>• {r}</div>", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # 7. Live Scraped News Feed with Real Images
+        st.subheader(f"📰 Live News & Catalyst Feed for {sym}")
+        news_items = res.get("news", [])
+        if news_items:
+            for idx, n in enumerate(news_items[:6]):
+                st.html(clean_html(render_rich_news_card(n, idx)))
+        else:
+            st.info("No recent news wire entries found for this ticker.")
+
 
         st.subheader("Industry Peer Comparison")
         # Select peers
@@ -3144,6 +3450,8 @@ elif current_tab == "PATTERN_GUIDE":
 # ==============================================================================
 with st.sidebar:
     st.markdown("### 💬 AI Copilot Assistant")
+
+
     st.caption("Chat with an institutional AI market assistant powered by Featherless AI:")
     
     selected_copilot_model = st.selectbox(
