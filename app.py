@@ -249,7 +249,7 @@ def load_env_file():
 load_env_file()
 
 st.set_page_config(
-    page_title="STOCKMARKET TERMINAL",
+    page_title="Reverie Terminal",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -259,330 +259,817 @@ st.set_page_config(
 # ==============================================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
-    
-    /* Fade-in glide-up transitions for screen switches */
-    @keyframes fadeInSlideUp {
-        from {
-            opacity: 0;
-            transform: translateY(12px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+    :root {
+        --bg-app: #0B0E14;
+        --bg-panel: #11151F;
+        --bg-elevated: #161B26;
+        --bg-hover: rgba(255,255,255,0.035);
+        --border: #1E2433;
+        --border-strong: #2A3142;
+        --text: #F3F5F7;
+        --text-2: #C9D1D9;
+        --muted: #8A94A6;
+        --accent: #00C805;
+        --accent-2: #00E676;
+        --info: #58A6FF;
+        --danger: #FF3B30;
+        --nav-h: 56px;
+        --sidebar-w: 300px;
+        --radius: 10px;
+        --space: 14px;
     }
 
-    .fintech-card, .stPlotlyChart, div[data-testid="stVerticalBlockBorderContainer"] {
-        animation: fadeInSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes softPulse {
+        0%, 100% { opacity: 0.45; transform: scale(1); }
+        50% { opacity: 0.85; transform: scale(1.05); }
+    }
+    @keyframes driftA {
+        0% { transform: translate3d(0,0,0) scale(1); }
+        50% { transform: translate3d(4%, -3%, 0) scale(1.08); }
+        100% { transform: translate3d(0,0,0) scale(1); }
+    }
+    @keyframes driftB {
+        0% { transform: translate3d(0,0,0) scale(1.05); }
+        50% { transform: translate3d(-5%, 4%, 0) scale(1); }
+        100% { transform: translate3d(0,0,0) scale(1.05); }
+    }
+    @keyframes shimmerLine {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 200% 50%; }
+    }
+    @keyframes clickRipple {
+        0% { box-shadow: 0 0 0 0 rgba(0,200,5,0.28); }
+        100% { box-shadow: 0 0 0 12px rgba(0,200,5,0); }
+    }
+    @keyframes logoGlow {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(0,200,5,0.15), inset 0 0 0 1px rgba(0,200,5,0.25); }
+        50% { box-shadow: 0 0 18px 2px rgba(0,200,5,0.18), inset 0 0 0 1px rgba(0,230,118,0.45); }
     }
 
-    /* 1. Global Viewport Reset & Spatial Compression */
-    .block-container {
-        max-width: 99% !important;
-        padding-top: 5rem !important;
-        padding-bottom: 0.5rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        background-color: #0B0E14 !important;
+    html, body {
+        height: 100% !important;
+        min-height: 100vh !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: auto !important;
+        background: var(--bg-app) !important;
+        color: var(--text) !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
-    header, footer, [data-testid="stHeader"] {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0px !important;
-    }
-    .element-container, .stVerticalBlock, [data-testid="stVerticalBlock"] {
-        gap: 0.05rem !important;
-        margin: 0px !important;
-        padding: 0px !important;
-    }
-    div[data-testid="stHorizontalBlock"] {
-        gap: 0.15rem !important;
-        margin: 0px !important;
-        padding: 0px !important;
-        display: flex !important;
-        align-items: stretch !important;
-    }
-    .stTabs [data-baseweb="tab-list"] { gap: 6px !important; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #121620 !important;
-        color: #8A94A6 !important;
-        border-radius: 4px 4px 0px 0px !important;
-        padding: 8px 16px !important;
-        font-size: 13px !important;
-        font-weight: 800 !important;
-        text-transform: uppercase !important;
-        font-family: 'Inter', -apple-system, sans-serif !important;
-        transition: all 0.2s ease;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #00E676 !important;
-        border-bottom-color: #00E676 !important;
-        text-shadow: 0 0 10px rgba(0,230,118,0.3);
+    html, body, [class*="css"], .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: var(--text) !important;
     }
 
-    /* 2. Typography Standard */
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, sans-serif !important;
+    /* Critical: Streamlit collapses to height:0 if app shell is not sized */
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    .stAppViewContainer,
+    .main,
+    section.main,
+    [data-testid="stMain"] {
+        height: 100% !important;
+        min-height: 100vh !important;
+        color: var(--text) !important;
     }
     .stApp {
-        background-color: #0B0E14 !important;
-        color: #FFFFFF !important;
+        background:
+            radial-gradient(900px 420px at 8% -8%, rgba(88,166,255,0.10), transparent 55%),
+            radial-gradient(780px 380px at 92% 0%, rgba(0,200,5,0.07), transparent 50%),
+            radial-gradient(700px 500px at 50% 110%, rgba(88,166,255,0.05), transparent 55%),
+            linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px),
+            var(--bg-app) !important;
+        background-size: auto, auto, auto, 48px 48px, 48px 48px, auto !important;
+        position: absolute !important;
+        inset: 0 !important;
+        overflow: auto !important;
+        overflow-x: hidden !important;
     }
-    h1, h2, h3, h4, h5, h6 {
-        font-family: 'Inter', -apple-system, sans-serif !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.8px;
+    [data-testid="stAppViewContainer"] {
+        position: relative !important;
+        overflow: auto !important;
+        height: 100% !important;
+        min-height: 100vh !important;
     }
-    h1 {
-        font-size: 18px !important;
-        font-weight: 900 !important;
-        color: #FFFFFF !important;
-        margin-bottom: 8px !important;
-        margin-top: 0px !important;
+    [data-testid="stMain"],
+    section.main {
+        overflow: auto !important;
+        height: auto !important;
+        min-height: 100vh !important;
     }
-    h2, h3, h4, h5, h6 {
-        font-size: 15px !important;
-        font-weight: 900 !important;
-        color: #FFFFFF !important;
-        margin-top: 10px !important;
-        margin-bottom: 10px !important;
-        padding-bottom: 4px !important;
-        border-bottom: 1px solid #1E2433 !important;
-        border-left: 3px solid #00E676 !important;
-        padding-left: 8px !important;
+    [data-testid="stSidebar"] {
+        height: 100vh !important;
+        min-height: 100vh !important;
+        overflow: auto !important;
     }
-    p, li, span, div, td, th {
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        font-family: 'Inter', -apple-system, sans-serif !important;
+    [data-testid="stSidebar"] > div {
+        height: 100% !important;
+        min-height: 100vh !important;
+    }
+    .stApp::before,
+    .stApp::after {
+        content: "";
+        position: fixed;
+        pointer-events: none;
+        z-index: 0;
+        border-radius: 999px;
+        filter: blur(40px);
+        opacity: 0.55;
+    }
+    .stApp::before {
+        width: 420px; height: 420px;
+        left: -120px; top: 12%;
+        background: radial-gradient(circle, rgba(88,166,255,0.16), transparent 70%);
+        animation: driftA 18s ease-in-out infinite;
+    }
+    .stApp::after {
+        width: 480px; height: 480px;
+        right: -140px; bottom: 4%;
+        background: radial-gradient(circle, rgba(0,200,5,0.12), transparent 70%);
+        animation: driftB 22s ease-in-out infinite;
     }
 
-    /* 3. Premium Card Framework */
+    header, footer, [data-testid="stHeader"], #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
+
+    .block-container {
+        max-width: 1480px !important;
+        padding: calc(var(--nav-h) + 18px) 24px 28px 24px !important;
+        background: transparent !important;
+        position: relative;
+        z-index: 1;
+        animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    [data-testid="stVerticalBlock"] { gap: 0.9rem !important; }
+    div[data-testid="stHorizontalBlock"] {
+        gap: 0.9rem !important;
+        align-items: stretch !important;
+    }
+    div[data-testid="column"] { padding: 0 !important; }
+    .element-container { margin-bottom: 0 !important; }
+
+    /* Typography — avoid forcing every span/div to heavy weight (causes overlap look) */
+    h1, h2, h3, h4, h5, h6 {
+        font-family: 'Inter', -apple-system, sans-serif !important;
+        color: var(--text) !important;
+        letter-spacing: 0.2px !important;
+        line-height: 1.25 !important;
+        text-transform: none !important;
+        border: none !important;
+    }
+    h1 {
+        font-size: 1.35rem !important;
+        font-weight: 700 !important;
+        margin: 0 0 0.65rem 0 !important;
+    }
+    h2, .stMarkdown h2, [data-testid="stMarkdownContainer"] h2 {
+        font-size: 1.02rem !important;
+        font-weight: 700 !important;
+        margin: 0.15rem 0 0.7rem 0 !important;
+        padding: 0 0 0.5rem 0 !important;
+        border-bottom: 1px solid var(--border) !important;
+    }
+    h3, h4, h5, h6,
+    .stMarkdown h3, [data-testid="stMarkdownContainer"] h3 {
+        font-size: 0.92rem !important;
+        font-weight: 650 !important;
+        margin: 0.1rem 0 0.55rem 0 !important;
+        padding: 0 0 0.35rem 0.65rem !important;
+        border-left: 3px solid var(--accent) !important;
+        border-bottom: none !important;
+    }
+    p, li, label, .stMarkdown, .stCaption, [data-testid="stMarkdownContainer"] p {
+        font-size: 0.9rem !important;
+        font-weight: 450 !important;
+        line-height: 1.5 !important;
+        color: var(--text-2) !important;
+    }
+    .stCaption, [data-testid="stCaptionContainer"] {
+        color: var(--muted) !important;
+        font-size: 0.8rem !important;
+    }
+
+    /* Cards */
+    .fintech-card, .stPlotlyChart, div[data-testid="stVerticalBlockBorderContainer"] {
+        animation: fadeInUp 0.42s cubic-bezier(0.16,1,0.3,1) both;
+    }
     .fintech-card {
-        background-color: rgba(17, 21, 31, 0.85) !important;
-        backdrop-filter: blur(12px) !important;
-        -webkit-backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 6px !important;
-        padding: 14px !important;
-        margin-bottom: 8px !important;
-        display: flex;
-        flex-direction: column;
+        background: rgba(17, 21, 31, 0.92) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+        padding: 16px !important;
+        margin-bottom: 0 !important;
         width: 100%;
-        height: 100%;
         box-sizing: border-box;
         overflow: hidden;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
     .fintech-card:hover {
-        border-color: rgba(88, 166, 255, 0.35) !important;
-        box-shadow: 0 6px 24px rgba(0,0,0,0.35) !important;
+        border-color: rgba(88,166,255,0.28) !important;
+        box-shadow: 0 12px 28px rgba(0,0,0,0.28) !important;
+        transform: translateY(-1px);
     }
     .card-highlighted {
-        border: 1px solid #00C805 !important;
+        border: 1px solid rgba(0,200,5,0.55) !important;
+        box-shadow: 0 0 0 1px rgba(0,200,5,0.08), 0 10px 28px rgba(0,0,0,0.25) !important;
     }
-    
-    /* Native Container Overrides */
     div[data-testid="stVerticalBlockBorderContainer"] {
-        background-color: #11151F !important;
-        border: 1px solid #1E2433 !important;
-        border-radius: 4px !important;
+        background: rgba(17,21,31,0.92) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
         padding: 12px !important;
-        margin-bottom: 6px !important;
+        margin-bottom: 0 !important;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+        transition: border-color 0.2s ease, transform 0.2s ease;
     }
-    
-    /* Sleek Zero-Border Financial Matrix Tables */
+    div[data-testid="stVerticalBlockBorderContainer"]:hover {
+        border-color: rgba(88,166,255,0.22) !important;
+        transform: translateY(-1px);
+    }
+    div[data-testid="stExpander"] {
+        background: var(--bg-panel) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+    }
+
+    /* Tables */
     table, th, td, tr {
         border: none !important;
         border-collapse: collapse !important;
-        background-color: transparent !important;
+        background: transparent !important;
     }
     th {
-        color: #8A94A6 !important;
-        font-size: 12px !important;
+        color: var(--muted) !important;
+        font-size: 11px !important;
         font-weight: 600 !important;
         text-transform: uppercase !important;
+        letter-spacing: 0.4px !important;
         text-align: left !important;
-        padding: 4px 12px !important;
-        border-bottom: 1px solid #1E2433 !important;
+        padding: 11px 12px !important;
+        border-bottom: 1px solid var(--border) !important;
+        background: rgba(17,21,31,0.95) !important;
     }
     td {
-        padding: 6px 12px !important;
-        font-size: 14px !important;
+        padding: 11px 12px !important;
+        font-size: 12.5px !important;
         font-weight: 500 !important;
-        color: #FFFFFF !important;
-        line-height: 1.2 !important;
-        border-bottom: 1px solid #1E2433 !important;
+        color: var(--text) !important;
+        line-height: 1.35 !important;
+        border-bottom: 1px solid rgba(30,36,51,0.9) !important;
         font-family: 'JetBrains Mono', monospace !important;
+        vertical-align: middle !important;
     }
+    .fintech-table tr { transition: background-color 0.15s ease; }
+    .fintech-table tr:hover { background: var(--bg-hover) !important; }
 
     .metric-box {
-        background-color: #161B26 !important;
-        border: 1px solid #1E2433 !important;
-        border-radius: 4px !important;
-        padding: 8px !important;
+        background: var(--bg-elevated) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        padding: 10px !important;
         text-align: center;
     }
     .metric-label {
-        font-size: 12px !important;
-        color: #8A94A6 !important;
+        font-size: 11px !important;
+        color: var(--muted) !important;
         text-transform: uppercase;
         margin-bottom: 4px;
         font-weight: 600;
     }
-    .metric-val {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        color: #FFFFFF !important;
+    .metric-val, .fin-readout {
         font-family: 'JetBrains Mono', monospace !important;
-    }
-    .fin-readout {
-        font-size: 22px !important;
         font-weight: 700 !important;
-        color: #FFFFFF !important;
-        font-family: 'JetBrains Mono', monospace !important;
+        color: var(--text) !important;
     }
+    .metric-val { font-size: 15px !important; }
+    .fin-readout { font-size: 20px !important; }
 
-    /* 4. Form Control Overhaul */
+    /* Inputs */
     div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] > div {
-        background-color: #161B26 !important;
-        border-radius: 4px !important;
-        border: 1px solid #1E2433 !important;
-        color: #FFFFFF !important;
+        background: var(--bg-elevated) !important;
+        border-radius: 8px !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
     }
     div[data-baseweb="input"] input, div[data-baseweb="textarea"] textarea {
-        color: #FFFFFF !important;
+        color: var(--text) !important;
         font-size: 13px !important;
     }
     div[data-baseweb="input"]:focus-within, div[data-baseweb="select"] > div:focus-within {
-        border-color: #1E2433 !important;
-        box-shadow: none !important;
+        border-color: rgba(0,200,5,0.45) !important;
+        box-shadow: 0 0 0 3px rgba(0,200,5,0.08) !important;
     }
     .stTextInput input, .stNumberInput input, .stSelectbox [role="combobox"] {
-        background-color: #161B26 !important;
-        border: 1px solid #1E2433 !important;
-        color: #FFFFFF !important;
-        border-radius: 4px !important;
-    }
-    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox [role="combobox"]:focus {
-        border-color: #1E2433 !important;
-        box-shadow: none !important;
+        background: var(--bg-elevated) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text) !important;
+        border-radius: 8px !important;
     }
     .stNumberInput button {
-        background-color: #161B26 !important;
-        color: #8A94A6 !important;
-        border: 1px solid #1E2433 !important;
+        background: var(--bg-elevated) !important;
+        color: var(--muted) !important;
+        border: 1px solid var(--border) !important;
     }
 
-    /* 5. Flat Segmented Toggles & Action Buttons */
+    /* Buttons */
     .segmented-toggles {
-        border-radius: 4px !important;
+        border-radius: 8px !important;
         padding: 4px !important;
-        background-color: #161B26 !important;
-        transition: border-color 0.2s ease-in-out;
+        background: var(--bg-elevated) !important;
     }
-    .segmented-toggles.buy-active {
-        border: 1px solid #00C805 !important;
-    }
-    .segmented-toggles.sell-active {
-        border: 1px solid #FF3B30 !important;
-    }
+    .segmented-toggles.buy-active { border: 1px solid var(--accent) !important; }
+    .segmented-toggles.sell-active { border: 1px solid var(--danger) !important; }
     .seg-buy-on button {
-        background-color: #00C805 !important;
+        background: var(--accent) !important;
         color: #0B0E14 !important;
         font-weight: 700 !important;
         border: none !important;
-        border-radius: 4px !important;
+        border-radius: 6px !important;
     }
     .seg-sell-on button {
-        background-color: #FF3B30 !important;
-        color: #FFFFFF !important;
+        background: var(--danger) !important;
+        color: #fff !important;
         font-weight: 700 !important;
         border: none !important;
-        border-radius: 4px !important;
+        border-radius: 6px !important;
     }
     .seg-off button {
-        background-color: #161B26 !important;
-        color: #8A94A6 !important;
-        border: 1px solid #1E2433 !important;
-        border-radius: 4px !important;
+        background: var(--bg-elevated) !important;
+        color: var(--muted) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 6px !important;
     }
     .exec-btn button {
-        background-color: #00C805 !important;
-        color: #FFFFFF !important;
+        background: linear-gradient(180deg, #12d40f, #00C805) !important;
+        color: #041006 !important;
         font-weight: 700 !important;
         padding: 10px 0 !important;
-        border-radius: 4px !important;
+        border-radius: 8px !important;
         border: none !important;
-        margin: 0px !important;
         width: 100% !important;
         font-size: 13px !important;
-        box-shadow: 0 4px 15px rgba(0, 200, 5, 0.3);
-        transition: all 0.2s ease;
+        box-shadow: 0 6px 18px rgba(0,200,5,0.28);
+        transition: transform 0.15s ease, box-shadow 0.15s ease !important;
     }
     .exec-btn button:hover {
-        background-color: #00e606 !important;
-        box-shadow: 0 6px 20px rgba(0, 200, 5, 0.4);
+        transform: translateY(-1px) !important;
+        box-shadow: 0 10px 24px rgba(0,200,5,0.35) !important;
     }
+    .exec-btn button:active { animation: clickRipple 0.35s ease-out; }
+
     div.stButton > button, div.stDownloadButton > button {
-        background-color: #161B26 !important;
-        color: #FFFFFF !important;
-        border: 1px solid #1E2433 !important;
-        border-radius: 4px !important;
-        font-size: 13px !important;
-        font-weight: 700 !important;
-        padding: 8px 16px !important;
-        transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        position: relative !important;
+        background: var(--bg-elevated) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: 8px !important;
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
+        padding: 0.45rem 0.9rem !important;
+        transition: all 0.18s cubic-bezier(0.16,1,0.3,1) !important;
     }
     div.stButton > button:hover, div.stDownloadButton > button:hover {
-        border-color: #00E676 !important;
-        color: #00E676 !important;
-        background-color: rgba(0, 230, 118, 0.04) !important;
-        transform: translateY(-1.5px) !important;
-        box-shadow: 0 4px 12px rgba(0, 230, 118, 0.12) !important;
+        border-color: rgba(0,200,5,0.55) !important;
+        color: var(--accent-2) !important;
+        background: rgba(0,200,5,0.05) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.22) !important;
     }
     div.stButton > button:active, div.stDownloadButton > button:active {
-        transform: translateY(0px) !important;
+        transform: translateY(0) scale(0.98) !important;
+        animation: clickRipple 0.35s ease-out;
     }
 
-    /* 6. Color indicators & pills */
-    .color-green {
-        color: #00C805 !important;
+    /* Status chips */
+    .color-green { color: var(--accent) !important; }
+    .color-red { color: var(--danger) !important; }
+    .color-gray { color: var(--muted) !important; }
+    .pill-pos, .pill-neg, .pill-neut {
+        padding: 3px 8px; border-radius: 999px; font-weight: 650; font-size: 10.5px;
+        display: inline-flex; align-items: center; letter-spacing: 0.2px;
     }
-    .color-red {
-        color: #FF3B30 !important;
+    .pill-pos { background: rgba(0,200,5,0.12); color: var(--accent); border: 1px solid rgba(0,200,5,0.22); }
+    .pill-neg { background: rgba(255,59,48,0.12); color: var(--danger); border: 1px solid rgba(255,59,48,0.22); }
+    .pill-neut { background: rgba(138,148,166,0.12); color: var(--muted); border: 1px solid rgba(138,148,166,0.2); }
+
+    .badge-strong-buy, .badge-buy {
+        background: rgba(0,200,5,0.12); color: var(--accent); padding: 4px 8px; border-radius: 6px;
+        font-weight: 700; font-size: 11px; border: 1px solid rgba(0,200,5,0.35);
     }
-    .color-gray { color: #8A94A6 !important; }
+    .badge-hold {
+        background: rgba(138,148,166,0.12); color: var(--muted); padding: 4px 8px; border-radius: 6px;
+        font-weight: 700; font-size: 11px; border: 1px solid rgba(138,148,166,0.3);
+    }
+    .badge-sell {
+        background: rgba(255,59,48,0.12); color: var(--danger); padding: 4px 8px; border-radius: 6px;
+        font-weight: 700; font-size: 11px; border: 1px solid rgba(255,59,48,0.35);
+    }
+    .sent-bullish { color: var(--accent); font-weight: 700; font-size: 11px; }
+    .sent-bearish { color: var(--danger); font-weight: 700; font-size: 11px; }
+    .sent-neutral { color: var(--muted); font-weight: 700; font-size: 11px; }
 
-    .pill-pos { background: rgba(0, 200, 5, 0.15); color: #00C805; padding: 2px 6px; font-weight: 600; border-radius: 3px; font-size: 11px; display: inline-block; }
-    .pill-neg { background: rgba(255, 59, 48, 0.15); color: #FF3B30; padding: 2px 6px; font-weight: 600; border-radius: 3px; font-size: 11px; display: inline-block; }
-    .pill-neut { background: rgba(138, 148, 166, 0.15); color: #8A94A6; padding: 2px 6px; font-weight: 600; border-radius: 3px; font-size: 11px; display: inline-block; }
-
-    .badge-strong-buy { background: rgba(0, 200, 5, 0.15); color: #00C805; padding: 4px 8px; border-radius: 3px; font-weight: 700; font-size: 12px; border: 1px solid #00C805; }
-    .badge-buy { background: rgba(0, 200, 5, 0.15); color: #00C805; padding: 4px 8px; border-radius: 3px; font-weight: 700; font-size: 12px; border: 1px solid #00C805; }
-    .badge-hold { background: rgba(138, 148, 166, 0.15); color: #8A94A6; padding: 4px 8px; border-radius: 3px; font-weight: 700; font-size: 12px; border: 1px solid #8A94A6; }
-    .badge-sell { background: rgba(255, 59, 48, 0.15); color: #FF3B30; padding: 4px 8px; border-radius: 3px; font-weight: 700; font-size: 12px; border: 1px solid #FF3B30; }
-
-    .sent-bullish { color: #00C805; font-weight: 700; font-size: 11px; }
-    .sent-bearish { color: #FF3B30; font-weight: 700; font-size: 11px; }
-    .sent-neutral { color: #8A94A6; font-weight: 700; font-size: 11px; }
-
-    /* Vol gauge bar */
-    .vol-track { background: #1E2433; border-radius: 3px; height: 8px; width: 100%; position: relative; margin: 6px 0; }
+    .vol-track { background: var(--border); border-radius: 3px; height: 8px; width: 100%; position: relative; margin: 6px 0; }
     .vol-fill { height: 8px; border-radius: 3px; position: absolute; left: 0; top: 0; }
-    .vol-marker { width: 3px; height: 14px; background: #FFFFFF; border-radius: 1px; position: absolute; top: -3px; }
-
-    /* Scanner table rows */
-    .scan-row { display: flex; justify-content: space-between; border-bottom: 1px solid #1E2433; padding: 6px 0; font-size: 13px; align-items: center; }
+    .vol-marker { width: 3px; height: 14px; background: #fff; border-radius: 1px; position: absolute; top: -3px; }
+    .scan-row {
+        display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr 0.9fr;
+        gap: 8px; align-items: center;
+        border-bottom: 1px solid var(--border); padding: 9px 10px; font-size: 12px;
+        transition: background 0.15s ease;
+    }
+    .scan-row:hover { background: var(--bg-hover); }
     .scan-row:last-child { border-bottom: none; }
-
-    /* News links */
-    .news-link { color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: 600; transition: color 0.15s ease-in-out; }
-    .news-link:hover { text-decoration: none; color: #00C805 !important; }
-    .tl-item { padding: 6px 0; border-bottom: 1px solid #1E2433; }
+    .news-link { color: var(--text); text-decoration: none; font-size: 13px; font-weight: 600; transition: color 0.15s ease; }
+    .news-link:hover { color: var(--accent) !important; text-decoration: none; }
+    .tl-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
     .tl-item:last-child { border-bottom: none; }
+
+    /* Top nav */
+    .rt-topnav {
+        position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+        z-index: 99999; display: flex; align-items: center; justify-content: space-between;
+        gap: 16px; padding: 0 20px;
+        background: linear-gradient(180deg, rgba(14,18,28,0.96), rgba(11,14,20,0.92));
+        border-bottom: 1px solid var(--border);
+        backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+        box-sizing: border-box;
+    }
+    .rt-topnav::after {
+        content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(0,200,5,0.55), rgba(88,166,255,0.45), transparent);
+        background-size: 200% 100%; animation: shimmerLine 7s linear infinite;
+    }
+    .rt-brand { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+    .rt-logo {
+        width: 28px; height: 28px; border-radius: 8px;
+        background: radial-gradient(circle at 30% 30%, #1b2a22, #0b0e14 70%);
+        border: 1px solid rgba(0,200,5,0.35);
+        display: grid; place-items: center; position: relative; overflow: hidden;
+        animation: logoGlow 3.8s ease-in-out infinite;
+    }
+    .rt-logo svg { width: 16px; height: 16px; display: block; }
+    .rt-brand-text {
+        font-size: 13px; font-weight: 700; letter-spacing: 0.8px;
+        text-transform: uppercase; color: var(--text);
+    }
+    .rt-brand-sub {
+        font-size: 10px; color: var(--muted); font-weight: 500; letter-spacing: 0.4px;
+        margin-top: 1px;
+    }
+    .rt-nav-links {
+        display: flex; align-items: center; gap: 4px; height: 100%;
+        overflow-x: auto; scrollbar-width: none;
+    }
+    .rt-nav-links::-webkit-scrollbar { display: none; }
+    .rt-nav-link {
+        height: 34px; display: inline-flex; align-items: center;
+        padding: 0 12px; border-radius: 8px; text-decoration: none !important;
+        color: var(--muted) !important; font-size: 12px; font-weight: 600;
+        letter-spacing: 0.2px; white-space: nowrap;
+        border: 1px solid transparent;
+        transition: all 0.18s ease;
+    }
+    .rt-nav-link:hover {
+        color: var(--text) !important;
+        background: rgba(255,255,255,0.03);
+        border-color: rgba(255,255,255,0.05);
+        transform: translateY(-1px);
+    }
+    .rt-nav-link.active {
+        color: var(--text) !important;
+        background: rgba(0,200,5,0.08);
+        border-color: rgba(0,200,5,0.28);
+        box-shadow: inset 0 -2px 0 var(--accent);
+    }
+    .rt-nav-meta {
+        color: var(--muted); font-size: 11px; font-weight: 500;
+        display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+    }
+    .rt-live-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 0 rgba(0,200,5,0.45);
+        animation: softPulse 2s ease-in-out infinite;
+    }
+
+    /* Sidebar — black, compact, professional */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #05070b 0%, #080b11 45%, #05070b 100%) !important;
+        border-right: 1px solid #141922 !important;
+        min-width: var(--sidebar-w) !important;
+        width: var(--sidebar-w) !important;
+        box-shadow: 8px 0 28px rgba(0,0,0,0.35);
+    }
+    section[data-testid="stSidebar"] > div {
+        padding: 14px 12px 18px 12px !important;
+        background: transparent !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0.55rem !important;
+    }
+    section[data-testid="stSidebar"] .block-container {
+        padding: 0 !important;
+        max-width: 100% !important;
+        animation: none !important;
+    }
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .ai-side-shell {
+        background: linear-gradient(180deg, #0a0d13, #07090e);
+        border: 1px solid #171c27;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 24px rgba(0,0,0,0.28);
+    }
+    .ai-side-head {
+        display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .ai-side-logo {
+        width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+        background: radial-gradient(circle at 30% 25%, #152018, #070a0e 72%);
+        border: 1px solid rgba(0,200,5,0.28);
+        display: grid; place-items: center;
+        animation: logoGlow 4s ease-in-out infinite;
+    }
+    .ai-side-logo svg { width: 18px; height: 18px; display: block; }
+    .ai-side-title {
+        font-size: 12px; font-weight: 700; color: #f2f4f7; letter-spacing: 0.4px;
+        text-transform: uppercase; line-height: 1.1;
+    }
+    .ai-side-sub {
+        font-size: 10.5px; color: #7f8899; margin-top: 3px; font-weight: 500;
+    }
+    .ai-side-status {
+        margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+        font-size: 10px; color: #8d97a8; font-weight: 600; letter-spacing: 0.3px;
+    }
+    .ai-side-status i {
+        width: 6px; height: 6px; border-radius: 50%; background: #00C805;
+        display: inline-block; animation: softPulse 2s ease-in-out infinite;
+    }
+    .ai-side-chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .ai-side-chip {
+        font-size: 10px; color: #9aa3b2; background: #0d1118; border: 1px solid #1a2030;
+        border-radius: 999px; padding: 3px 8px; font-weight: 600;
+    }
+    .ai-side-ticker {
+        margin-top: 10px; display: flex; align-items: center; justify-content: space-between;
+        background: #0b0f16; border: 1px solid #171d29; border-radius: 8px; padding: 8px 10px;
+    }
+    .ai-side-ticker span { font-size: 10px; color: #7f8899; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .ai-side-ticker strong {
+        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e8edf5; font-weight: 700;
+    }
+
+    section[data-testid="stSidebar"] [data-testid="stChatInput"] {
+        background: transparent !important;
+        padding-top: 2px !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stChatInput"] textarea,
+    section[data-testid="stSidebar"] [data-testid="stChatInput"] input {
+        background: #0b0f16 !important;
+        border: 1px solid #1a2030 !important;
+        color: #e8edf5 !important;
+        border-radius: 10px !important;
+        font-size: 12px !important;
+    }
+    /* Fully hide Streamlit chat avatars (smart_toy text) — custom bubbles used */
+    section[data-testid="stSidebar"] [data-testid="stChatMessage"],
+    section[data-testid="stSidebar"] [data-testid="stChatMessageAvatarUser"],
+    section[data-testid="stSidebar"] [data-testid="stChatMessageAvatarAssistant"],
+    section[data-testid="stSidebar"] [data-testid="stIconMaterial"] {
+        display: none !important;
+    }
+
+    /* Custom AI chat bubbles (no smart_toy) */
+    .ai-chat-scroll {
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 2px 1px 6px 1px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        scrollbar-width: thin;
+        margin: 8px 0 4px 0;
+    }
+    .ai-bubble {
+        border-radius: 10px;
+        padding: 9px 10px 9px 36px;
+        font-size: 12px;
+        line-height: 1.45;
+        color: #c9d1dc;
+        border: 1px solid #171d29;
+        background: #0b0f16;
+        animation: fadeInUp 0.28s ease both;
+        position: relative;
+    }
+    .ai-bubble::before {
+        content: "";
+        position: absolute;
+        left: 8px;
+        top: 9px;
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        border: 1px solid rgba(0,200,5,0.3);
+        background-image:
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Cpath d='M4 16.5L9.2 11.2L12.8 14.8L20 7.5' stroke='%2300E676' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M15.5 7.5H20V12' stroke='%2358A6FF' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
+            radial-gradient(circle at 30% 30%, #1a2a20, #0a0e14 70%);
+        background-size: 10px 10px, cover;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+    .ai-bubble.user {
+        background: #0d121b;
+        border-color: #1a2433;
+        color: #d7dee8;
+    }
+    .ai-bubble.user::before {
+        border-color: rgba(88,166,255,0.3);
+        background-image:
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'%3E%3Ccircle cx='12' cy='9' r='3.2' stroke='%23C9D1D9' stroke-width='1.7'/%3E%3Cpath d='M6.5 18.2c1.2-2.4 3-3.6 5.5-3.6s4.3 1.2 5.5 3.6' stroke='%2358A6FF' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E"),
+            radial-gradient(circle at 30% 30%, #151a24, #0a0e14 70%);
+        background-size: 10px 10px, cover;
+        background-repeat: no-repeat;
+        background-position: center;
+    }
+    .ai-bubble strong { color: #f3f5f7; font-weight: 700; }
+    .ai-clear-wrap { margin: 8px 0 2px 0; }
+    .ai-clear-wrap button {
+        min-height: 30px !important;
+        padding: 0.25rem 0.6rem !important;
+        font-size: 11px !important;
+        background: #0b0f16 !important;
+        border-color: #1a2030 !important;
+        color: #9aa3b2 !important;
+    }
+    .ai-clear-wrap button:hover {
+        color: var(--accent-2) !important;
+        border-color: rgba(0,200,5,0.4) !important;
+    }
+
+    /* Index tiles — stacked, no overlap */
+    .idx-tile {
+        background: linear-gradient(180deg, rgba(17,21,31,0.98), rgba(12,15,22,0.96));
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 12px 8px 12px;
+        min-height: 72px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        animation: fadeInUp 0.45s cubic-bezier(0.16,1,0.3,1) both;
+        margin-bottom: 4px;
+    }
+    .idx-tile:hover {
+        transform: translateY(-2px);
+        border-color: rgba(88,166,255,0.28);
+        box-shadow: 0 14px 28px rgba(0,0,0,0.28);
+    }
+    .idx-tile:active { transform: scale(0.985); }
+    .idx-tile-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .idx-name {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.55px;
+        text-transform: uppercase;
+        line-height: 1.2;
+    }
+    .idx-price {
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        line-height: 1.15;
+        margin-top: 4px;
+    }
+    .idx-chg {
+        text-align: right;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.25;
+        white-space: nowrap;
+    }
+    .idx-chg .pts { opacity: 0.9; display: block; }
+    .idx-chg .pct {
+        display: inline-flex;
+        margin-top: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 10px;
+        border: 1px solid transparent;
+    }
+    .idx-up .pct {
+        color: var(--accent);
+        background: rgba(0,200,5,0.10);
+        border-color: rgba(0,200,5,0.22);
+    }
+    .idx-down .pct {
+        color: var(--danger);
+        background: rgba(255,59,48,0.10);
+        border-color: rgba(255,59,48,0.22);
+    }
+    .idx-up .pts { color: var(--accent); }
+    .idx-down .pts { color: var(--danger); }
+
+    /* Page section headers */
+    .rt-section-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0.15rem 0 0.85rem 0;
+    }
+    .rt-section-title {
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: 0.2px;
+        margin: 0;
+    }
+    .rt-section-sub {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 500;
+        margin-top: 2px;
+    }
+
+    /* Click feedback */
+    .rt-nav-link:active, .fintech-card:active {
+        transform: scale(0.985) !important;
+    }
+    a, button { -webkit-tap-highlight-color: transparent; }
+
+    /* Compact sidebar width */
+    :root { --sidebar-w: 268px; }
+    section[data-testid="stSidebar"] {
+        min-width: 268px !important;
+        width: 268px !important;
+        max-width: 268px !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        transform: none !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stBottomBlockContainer"] {
+        background: transparent !important;
+        padding-bottom: 8px !important;
+    }
+
+    /* Widget label polish */
+    [data-testid="stWidgetLabel"] p {
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: var(--muted) !important;
+    }
+
+    /* Plotly breathing room */
+    .stPlotlyChart {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+        background: #232a3a; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: #2f3850; border: 2px solid transparent; background-clip: padding-box; }
+
+    @media (max-width: 1100px) {
+        .rt-nav-meta { display: none; }
+        .block-container { padding-left: 14px !important; padding-right: 14px !important; }
+        :root { --sidebar-w: 250px; }
+        section[data-testid="stSidebar"] {
+            min-width: 250px !important;
+            width: 250px !important;
+            max-width: 250px !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -606,16 +1093,25 @@ if "portfolio_history" not in st.session_state:
 if "trade_order_type" not in st.session_state:
     st.session_state["trade_order_type"] = "BUY"
 
+_VALID_TABS = {
+    "MARKET_HOME", "NEWS", "MARKETS", "RESEARCH", "TRADE_DESK", "PATTERN_GUIDE"
+}
+
 # Handle Query Parameters
 if st.query_params:
     q_params = st.query_params
     updated = False
     if "tab" in q_params:
-        tab_val = q_params["tab"]
-        if tab_val in ["AI_AGENT_RESEARCH", "AI AGENT RESEARCH", "RESEARCH"]:
+        tab_val = str(q_params["tab"]).strip().upper()
+        # AI Copilot page removed — assistant lives in sidebar only
+        if tab_val in {"AI_COPILOT", "AI COPILOT"}:
+            st.session_state["current_tab"] = "MARKET_HOME"
+        elif tab_val in {"AI_AGENT_RESEARCH", "AI AGENT RESEARCH", "RESEARCH"}:
             st.session_state["current_tab"] = "RESEARCH"
-        else:
+        elif tab_val in _VALID_TABS:
             st.session_state["current_tab"] = tab_val
+        else:
+            st.session_state["current_tab"] = "MARKET_HOME"
         updated = True
     if "ticker" in q_params:
         st.session_state["active_ticker"] = q_params["ticker"].strip().upper()
@@ -625,48 +1121,63 @@ if st.query_params:
         st.query_params.clear()
         st.rerun()
 
+# Guard against stale AI_COPILOT session values
+if st.session_state.get("current_tab") not in _VALID_TABS:
+    st.session_state["current_tab"] = "MARKET_HOME"
+
 current_tab = st.session_state["current_tab"]
 
 # ==============================================================================
 # HORIZONTAL TOP NAVIGATION
 # ==============================================================================
-# Build the nav links HTML string
 _nav_links = ""
 for _tid, _tname in [
-    ("MARKET_HOME", "MARKET HOME"),
-    ("NEWS", "NEWS"),
-    ("MARKETS", "MARKETS"),
-    ("RESEARCH", "RESEARCH"),
-    ("TRADE_DESK", "SIMULATION"),
-    ("PATTERN_GUIDE", "PATTERN GUIDE")
+    ("MARKET_HOME", "Home"),
+    ("NEWS", "News"),
+    ("MARKETS", "Markets"),
+    ("RESEARCH", "Research"),
+    ("TRADE_DESK", "Simulation"),
+    ("PATTERN_GUIDE", "Patterns"),
 ]:
-    _active = (current_tab == _tid)
-    _style = "color:#FFFFFF;border-bottom:3px solid #00C805;" if _active else "color:#8A94A6;border-bottom:3px solid transparent;"
-    _out = "this.style.color='#8A94A6'" if not _active else "this.style.color='#FFFFFF'"
+    _active_cls = " active" if current_tab == _tid else ""
     _nav_links += (
-        f'<a href="/?tab={_tid}" target="_self" style="'
-        f'text-decoration:none;font-size:12px;font-weight:600;'
-        f'height:100%;display:flex;align-items:center;'
-        f'padding:0 14px;box-sizing:border-box;'
-        f'transition:color 0.2s ease-in-out;{_style}"'
-        f' onmouseover="this.style.color=\'#FFFFFF\'"'
-        f' onmouseout="{_out}">{_tname}</a>'
+        f'<a class="rt-nav-link{_active_cls}" href="/?tab={_tid}" target="_self">{_tname}</a>'
     )
 
-# Inject the nav bar via st.html
+_active_label = {
+    "MARKET_HOME": "Market Home",
+    "NEWS": "News",
+    "MARKETS": "Markets",
+    "RESEARCH": "Research",
+    "TRADE_DESK": "Simulation",
+    "PATTERN_GUIDE": "Pattern Guide",
+}.get(current_tab, "Terminal")
+
+_logo_svg = (
+    '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M4 16.5L9.2 11.2L12.8 14.8L20 7.5" stroke="#00E676" stroke-width="2.2" '
+    'stroke-linecap="round" stroke-linejoin="round"/>'
+    '<path d="M15.5 7.5H20V12" stroke="#58A6FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'
+    '</svg>'
+)
+
 st.html(
-    f'<div style="'
-    f'position:fixed;top:0;left:0;right:0;height:48px;'
-    f'background-color:#1A1F2C;border-bottom:1px solid #2A3142;'
-    f'z-index:99999;display:flex;align-items:center;'
-    f'justify-content:flex-start;padding:0 24px;'
-    f'box-shadow:0px 2px 8px rgba(0,0,0,0.3);'
-    f'font-family:\'Inter\',-apple-system,sans-serif;box-sizing:border-box;">'
-    f'<div style="font-size:14px;font-weight:700;color:#58A6FF;'
-    f'letter-spacing:1.5px;margin-right:32px;text-transform:uppercase;">📈 STOCKMARKET TERMINAL</div>'
-    f'<div style="display:flex;gap:4px;height:100%;align-items:center;">'
-    f'{_nav_links}'
-    f'</div></div>'
+    f"""
+    <div class="rt-topnav">
+        <div class="rt-brand">
+            <div class="rt-logo">{_logo_svg}</div>
+            <div>
+                <div class="rt-brand-text">Reverie Terminal</div>
+                <div class="rt-brand-sub">Institutional market desk</div>
+            </div>
+        </div>
+        <div class="rt-nav-links">{_nav_links}</div>
+        <div class="rt-nav-meta">
+            <span class="rt-live-dot"></span>
+            {_active_label} · Live
+        </div>
+    </div>
+    """
 )
 
 # ==============================================================================
@@ -1158,125 +1669,61 @@ def get_ticker_info(symbol: str) -> dict:
         "day_change_pct": float(fallback_chg)
     }
 
-@st.cache_data(ttl=300)
-def get_rss_news(symbol: str = "^GSPC") -> list:
-    """Fetch 30+ news headlines from Yahoo Finance, CNBC, MarketWatch, Finnhub, and Firecrawl."""
-    parsed = []
-    seen_titles = set()
-    
-    pos_phrases = ["bullish", "upgrade", "beat", "record", "growth", "surge", "rally", "profit", "gain", "high", "soar", "positive", "expansion", "dividend"]
-    neg_phrases = ["bearish", "downgrade", "miss", "decline", "fall", "plunge", "loss", "risk", "warning", "drop", "slump", "lawsuit", "cut", "deficit"]
-
-    # Source 1: Yahoo Finance Multi-ticker RSS
-    rss_urls = [
-        f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}",
-        "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,AAPL,NVDA,TSLA,MSFT,AMZN,GOOGL,META",
-        "https://www.cnbc.com/id/100003114/device/rss/rss.html",
-        "http://feeds.marketwatch.com/marketwatch/topstories/"
-    ]
-    
-    for url in rss_urls:
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"})
-            with urllib.request.urlopen(req, timeout=4) as resp:
-                xml_data = resp.read()
-            root = ET.fromstring(xml_data)
-            items = root.findall(".//item")
+@st.cache_data(ttl=600)
+def get_rss_news(symbol: str) -> list:
+    """Fetch news headlines from Yahoo Finance RSS feed and calculate phrase-based sentiment."""
+    symbol = symbol.strip().upper()
+    url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            xml_data = resp.read()
+        root = ET.fromstring(xml_data)
+        items = root.findall(".//item")
+        parsed = []
+        
+        pos_phrases = ["beating expectations", "surpassing guidance", "strategic breakthrough", "increased allocation", "upgrade", "growth acceleration", "support holds"]
+        neg_phrases = ["regulatory probe", "supply constraints", "device costs rising", "revenue miss", "guidance cut", "downgrade", "resistance ceiling holds"]
+        
+        for item in items[:10]:
+            title = (item.findtext("title") or "").strip()
+            link = (item.findtext("link") or "").strip()
+            pub_date = (item.findtext("pubDate") or "").strip()
+            source = (item.findtext("source") or "Yahoo Finance").strip()
+            summary_snippet = (item.findtext("description") or "").strip()
             
-            for item in items:
-                title = (item.findtext("title") or "").strip()
-                link = (item.findtext("link") or "").strip()
-                pub_date = (item.findtext("pubDate") or "").strip()
-                source_elem = item.findtext("source") or ("CNBC" if "cnbc" in url else ("MarketWatch" if "marketwatch" in url else "Yahoo Finance"))
-                summary_snippet = (item.findtext("description") or "").strip()
+            if not title:
+                continue
                 
-                # Strip HTML tags from summary snippet if present
-                if "<" in summary_snippet:
-                    try:
-                        from bs4 import BeautifulSoup
-                        summary_snippet = BeautifulSoup(summary_snippet, "html.parser").get_text()
-                    except Exception:
-                        pass
-                        
-                if not title or title.lower() in seen_titles:
-                    continue
-                seen_titles.add(title.lower())
-                
-                # Image extraction from media tags or enclosures
-                img_url = ""
-                media_content = item.find("{http://search.yahoo.com/mrss/}content")
-                if media_content is not None and media_content.get("url"):
-                    img_url = media_content.get("url")
-                else:
-                    enclosure = item.find("enclosure")
-                    if enclosure is not None and enclosure.get("url"):
-                        img_url = enclosure.get("url")
-
-                combined_text = (title + " " + summary_snippet).lower()
-                pos_count = sum(1 for w in pos_phrases if w in combined_text)
-                neg_count = sum(1 for w in neg_phrases if w in combined_text)
-                
-                sa = (pos_count - neg_count) / max(1, pos_count + neg_count)
-                if sa > 0.1:
-                    badge, bcls = "BULLISH", "sent-bullish"
-                elif sa < -0.1:
-                    badge, bcls = "BEARISH", "sent-bearish"
-                else:
-                    badge, bcls = "NEUTRAL", "sent-neutral"
-                    
-                parsed.append({
-                    "title": title,
-                    "headline": title,
-                    "link": link,
-                    "url": link,
-                    "pub_date": pub_date,
-                    "time": datetime.now(),
-                    "source": source_elem,
-                    "summary_snippet": summary_snippet[:250],
-                    "summary": summary_snippet[:250],
-                    "sentiment_score": sa,
-                    "badge": badge,
-                    "class": bcls,
-                    "image_url": img_url
-                })
-        except Exception:
-            continue
+            combined_text = (title + " " + summary_snippet).lower()
+            pos_count = sum(1 for phrase in pos_phrases if phrase in combined_text)
+            neg_count = sum(1 for phrase in neg_phrases if phrase in combined_text)
             
-    # Source 2: Finnhub API General Market News
-    fh_key = os.environ.get("FINNHUB_API_KEY")
-    if fh_key and not fh_key.startswith("YOUR_"):
-        try:
-            res = requests.get("https://finnhub.io/api/v1/news", params={"category": "general", "token": fh_key}, timeout=5)
-            if res.status_code == 200:
-                for art in res.json()[:15]:
-                    t = art.get("headline", "").strip()
-                    if not t or t.lower() in seen_titles: continue
-                    seen_titles.add(t.lower())
-                    
-                    comb = (t + " " + (art.get("summary") or "")).lower()
-                    pc = sum(1 for w in pos_phrases if w in comb)
-                    nc = sum(1 for w in neg_phrases if w in comb)
-                    sa = (pc - nc) / max(1, pc + nc)
-                    bdg = "BULLISH" if sa > 0.1 else ("BEARISH" if sa < -0.1 else "NEUTRAL")
-                    bcls = "sent-bullish" if bdg == "BULLISH" else ("sent-bearish" if bdg == "BEARISH" else "sent-neutral")
-                    
-                    parsed.append({
-                        "title": t, "headline": t,
-                        "link": art.get("url", ""), "url": art.get("url", ""),
-                        "pub_date": datetime.fromtimestamp(art.get("datetime", time.time())).strftime("%b %d, %H:%M"),
-                        "time": datetime.fromtimestamp(art.get("datetime", time.time())),
-                        "source": art.get("source") or "Finnhub Wire",
-                        "summary_snippet": art.get("summary", "")[:250],
-                        "summary": art.get("summary", "")[:250],
-                        "sentiment_score": sa, "badge": bdg, "class": bcls,
-                        "image_url": art.get("image", "")
-                    })
-        except Exception:
-            pass
-
-    return parsed
-
-
+            total_detected = pos_count + neg_count
+            sa = (pos_count - neg_count) / (total_detected + 1)
+            
+            if sa > 0:
+                badge, bcls = "BULLISH", "sent-bullish"
+            elif sa < 0:
+                badge, bcls = "BEARISH", "sent-bearish"
+            else:
+                badge, bcls = "NEUTRAL", "sent-neutral"
+                
+            parsed.append({
+                "title": title,
+                "link": link,
+                "pub_date": pub_date,
+                "date": pub_date,  # compatibility key
+                "source": source,
+                "summary_snippet": summary_snippet,
+                "sentiment_score": sa,
+                "badge": badge,
+                "class": bcls
+            })
+        return parsed
+    except Exception:
+        pass
+    return []
 
 import base64
 
@@ -1308,42 +1755,36 @@ def clean_html(s: str) -> str:
 
 def render_rich_news_card(n, idx) -> str:
     from urllib.parse import urlparse
-    url = n.get('url') or n.get('link') or '#'
-    headline = n.get('headline') or n.get('title') or 'Market Update Headline'
-    dom = urlparse(url).netloc or "finance.yahoo.com"
+    dom = urlparse(n.get('link', '')).netloc or "finance.yahoo.com"
+    img_paths = ["assets/news_chart.png", "assets/news_tech.png", "assets/news_corp.png"]
+    img_path = img_paths[idx % 3]
+    img_b64 = get_image_base64(img_path)
     
-    img_url = n.get('image_url') or ""
-    if not img_url:
-        img_paths = ["assets/news_chart.png", "assets/news_tech.png", "assets/news_corp.png"]
-        img_url = get_image_base64(img_paths[idx % 3])
-        
-    desc = n.get('summary') or n.get('summary_snippet') or ''
+    # Split description into nice bullets/sentences for structured captions
+    desc = n.get('summary_snippet', '') or ''
     sentences = [s.strip() for s in desc.split('.') if s.strip()]
     bullet_list = ""
     for s in sentences[:3]:
         bullet_list += f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; line-height: 1.4; font-family: \"Inter\", sans-serif;'>{s}.</li>"
     if not bullet_list:
-        bullet_list = f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; font-family: \"Inter\", sans-serif;'>Latest market catalyst details and analyst takeaways.</li>"
+        bullet_list = f"<li style='margin-bottom: 4px; font-size: 13px; color: #8A94A6; font-family: \"Inter\", sans-serif;'>Latest market catalyst details.</li>"
         
-    pub_date = n.get('pub_date') or (n.get('time').strftime('%b %d, %H:%M') if hasattr(n.get('time'), 'strftime') else "Recent")
-    badge_text = n.get('badge') or (n.get('sentiment_label') or 'NEUTRAL').upper()
-    
-    badge_html = f"""<span class="pill-neut" style="margin-left: auto; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 2px 6px;">{badge_text}</span>"""
+    badge_html = f"""<span class="{n.get('class', 'sent-neutral')}" style="margin-left: auto; font-size: 10px; font-weight: 700; border-radius: 3px; padding: 1px 6px; background: rgba(138,148,166,0.1); border: 1px solid currentColor;">{n.get('badge', 'NEUTRAL')}</span>"""
     
     header_html = f"""
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
         <img src="https://www.google.com/s2/favicons?sz=64&domain={dom}" style="width: 18px; height: 18px; border-radius: 3px;" />
         <span style="font-size: 11px; font-weight: 700; color: #FFFFFF; text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">{n.get('source', 'NEWS')}</span>
-        <span style="font-size: 11px; color: #8A94A6;">&middot; {pub_date}</span>
+        <span style="font-size: 11px; color: #8A94A6;">&middot; {n.get('pub_date', '')}</span>
         {badge_html}
     </div>
     """
     
     title_html = f"""
     <div style="margin-bottom: 10px;">
-        <a href="{url}" target="_blank" style="font-size: 16px; font-weight: 700; color: #58A6FF; text-decoration: none; font-family: 'Inter', sans-serif; line-height: 1.3; transition: color 0.15s ease-in-out;" 
+        <a href="{n.get('link', '#')}" target="_blank" style="font-size: 16px; font-weight: 700; color: #58A6FF; text-decoration: none; font-family: 'Inter', sans-serif; line-height: 1.3; transition: color 0.15s ease-in-out;" 
            onmouseover="this.style.color='#00C805'" onmouseout="this.style.color='#58A6FF'">
-            {headline}
+            {n.get('title', 'Market Update Headline')}
         </a>
     </div>
     """
@@ -1355,9 +1796,10 @@ def render_rich_news_card(n, idx) -> str:
     """
 
     if idx % 2 == 0:
+        # Layout 1: Top large hero banner style card (full width image!)
         card_html = f"""
-        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; margin-bottom: 16px; display: flex; flex-direction: column; overflow: hidden;">
-            <img src="{img_url}" style="width: 100%; height: 210px; object-fit: cover; border-bottom: 1px solid #1E2433;" />
+        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; margin-bottom: 16px; display: flex; flex-direction: column; overflow: hidden; transition: border-color 0.2s ease-in-out;">
+            <img src="{img_b64}" style="width: 100%; height: 210px; object-fit: cover; border-bottom: 1px solid #1E2433;" />
             <div style="padding: 16px;">
                 {header_html}
                 {title_html}
@@ -1366,9 +1808,10 @@ def render_rich_news_card(n, idx) -> str:
         </div>
         """
     else:
+        # Layout 2: Tall side-banner style card (image dominates on the left)
         card_html = f"""
-        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; gap: 16px; align-items: stretch;">
-            <img src="{img_url}" style="width: 220px; height: 150px; border-radius: 4px; object-fit: cover; border: 1px solid #1E2433; flex-shrink: 0;" />
+        <div style="background-color: #11151F; border: 1px solid #1E2433; border-radius: 8px; padding: 16px; margin-bottom: 16px; display: flex; gap: 16px; align-items: stretch; transition: border-color 0.2s ease-in-out;">
+            <img src="{img_b64}" style="width: 220px; height: 150px; border-radius: 4px; object-fit: cover; border: 1px solid #1E2433; flex-shrink: 0;" />
             <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;">
                 {header_html}
                 {title_html}
@@ -1377,7 +1820,6 @@ def render_rich_news_card(n, idx) -> str:
         </div>
         """
     return card_html
-
 
 def calculate_rsi(close_prices: pd.Series, period: int = 14) -> float:
     P = close_prices.tolist() if isinstance(close_prices, pd.Series) else list(close_prices)
@@ -1708,156 +2150,64 @@ def make_heatmap_chart(df: pd.DataFrame):
     )
     return fig
 
-def make_advanced_chart(
-    df: pd.DataFrame,
-    cutoff_date,
-    chart_type="Candlestick",
-    show_ema9=False,
-    show_ema21=False,
-    show_sma20=True,
-    show_sma50=False,
-    show_sma60=True,
-    show_sma200=False,
-    show_bb=False,
-    show_rsi=True,
-    show_macd=True
-):
-    fdf = df[df.index >= cutoff_date].sort_index()
+def make_advanced_chart(df: pd.DataFrame, cutoff_date, sma20_series, sma60_series, sma200_series, rsi_series, macd_line, macd_sig, macd_hist):
+    fdf = df[df.index >= cutoff_date]
     if fdf.empty:
         return go.Figure()
-        
-    closes = df["Close"]
     
-    sma20 = closes.rolling(20).mean()[closes.index >= cutoff_date]
-    sma50 = closes.rolling(50).mean()[closes.index >= cutoff_date]
-    sma60 = closes.rolling(60).mean()[closes.index >= cutoff_date]
-    sma200 = closes.rolling(200).mean()[closes.index >= cutoff_date]
-    
-    ema9 = closes.ewm(span=9, adjust=False).mean()[closes.index >= cutoff_date]
-    ema21 = closes.ewm(span=21, adjust=False).mean()[closes.index >= cutoff_date]
-    
-    roll20 = closes.rolling(20)
-    bb_mid = roll20.mean()[closes.index >= cutoff_date]
-    std20 = roll20.std()[closes.index >= cutoff_date]
-    bb_upper = bb_mid + (2.0 * std20)
-    bb_lower = bb_mid - (2.0 * std20)
-    
-    vol_sma20 = df["Volume"].rolling(20).mean()[df.index >= cutoff_date]
-    
-    # RSI calculation
-    delta = closes.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-    rs = gain / (loss + 1e-9)
-    rsi_series = (100 - (100 / (1 + rs)))[closes.index >= cutoff_date]
-    
-    # MACD calculation
-    ema12 = closes.ewm(span=12, adjust=False).mean()
-    ema26 = closes.ewm(span=26, adjust=False).mean()
-    macd_line = ema12 - ema26
-    macd_signal = macd_line.ewm(span=9, adjust=False).mean()
-    macd_hist = macd_line - macd_signal
-    
-    m_line = macd_line[closes.index >= cutoff_date]
-    m_sig = macd_signal[closes.index >= cutoff_date]
-    m_h = macd_hist[closes.index >= cutoff_date]
-    
-    # Subplot row budgeting
-    rows = 2
-    row_heights = [0.65, 0.15]
-    if show_rsi:
-        rows += 1
-        row_heights.append(0.10)
-    if show_macd:
-        rows += 1
-        row_heights.append(0.10)
-        
-    tot_h = sum(row_heights)
-    row_heights = [h / tot_h for h in row_heights]
+    sma20 = sma20_series[sma20_series.index >= cutoff_date]
+    sma60 = sma60_series[sma60_series.index >= cutoff_date]
+    sma200 = sma200_series[sma200_series.index >= cutoff_date]
+    rsi = rsi_series[rsi_series.index >= cutoff_date]
+    macd = macd_line[macd_line.index >= cutoff_date]
+    sig = macd_sig[macd_sig.index >= cutoff_date]
+    hist = macd_hist[macd_hist.index >= cutoff_date]
     
     fig = make_subplots(
-        rows=rows, cols=1,
+        rows=2, cols=1,
         shared_xaxes=True,
-        vertical_spacing=0.03,
-        row_heights=row_heights
+        vertical_spacing=0.04,
+        row_heights=[0.8, 0.2]
     )
     
-    # Row 1: Main Price Track
-    if chart_type == "Candlestick":
-        fig.add_trace(go.Candlestick(
-            x=fdf.index, open=fdf["Open"], high=fdf["High"], low=fdf["Low"], close=fdf["Close"],
-            name="Price",
-            increasing=dict(line=dict(color="#00C805", width=1.5), fillcolor="#00C805"),
-            decreasing=dict(line=dict(color="#FF3B30", width=1.5), fillcolor="#FF3B30")
-        ), row=1, col=1)
-    else:
-        fig.add_trace(go.Scatter(
-            x=fdf.index, y=fdf["Close"],
-            name="Close Price", line=dict(color="#58A6FF", width=2.5),
-            fill='tozeroy', fillcolor='rgba(88,166,255,0.08)'
-        ), row=1, col=1)
+    # 1. Candlestick
+    fig.add_trace(go.Candlestick(
+        x=fdf.index, open=fdf["Open"], high=fdf["High"], low=fdf["Low"], close=fdf["Close"],
+        name="Price",
+        increasing=dict(line=dict(color="#00C805", width=2), fillcolor="#00C805"),
+        decreasing=dict(line=dict(color="#FF3B30", width=2), fillcolor="#FF3B30")
+    ), row=1, col=1)
+    
+    fig.add_trace(go.Scatter(x=sma20.index, y=sma20, name="SMA 20", line=dict(color="rgba(88,166,255,0.6)", width=1.5)), row=1, col=1)
+    fig.add_trace(go.Scatter(x=sma60.index, y=sma60, name="SMA 60", line=dict(color="rgba(139,148,158,0.5)", width=1.5)), row=1, col=1)
+    if not sma200.dropna().empty:
+        fig.add_trace(go.Scatter(x=sma200.index, y=sma200, name="SMA 200", line=dict(color="rgba(245,166,35,0.6)", width=1.5, dash="dot")), row=1, col=1)
         
-    if show_ema9:
-        fig.add_trace(go.Scatter(x=ema9.index, y=ema9, name="EMA 9", line=dict(color="#00E676", width=1.5)), row=1, col=1)
-    if show_ema21:
-        fig.add_trace(go.Scatter(x=ema21.index, y=ema21, name="EMA 21", line=dict(color="#FFB020", width=1.5)), row=1, col=1)
-    if show_sma20:
-        fig.add_trace(go.Scatter(x=sma20.index, y=sma20, name="SMA 20", line=dict(color="rgba(88,166,255,0.8)", width=1.5)), row=1, col=1)
-    if show_sma50:
-        fig.add_trace(go.Scatter(x=sma50.index, y=sma50, name="SMA 50", line=dict(color="rgba(186,104,200,0.8)", width=1.5)), row=1, col=1)
-    if show_sma60:
-        fig.add_trace(go.Scatter(x=sma60.index, y=sma60, name="SMA 60", line=dict(color="rgba(139,148,158,0.7)", width=1.5)), row=1, col=1)
-    if show_sma200:
-        fig.add_trace(go.Scatter(x=sma200.index, y=sma200, name="SMA 200", line=dict(color="rgba(245,166,35,0.9)", width=1.5, dash="dot")), row=1, col=1)
-        
-    if show_bb:
-        fig.add_trace(go.Scatter(x=bb_upper.index, y=bb_upper, name="BB Upper", line=dict(color="rgba(88,166,255,0.4)", width=1, dash="dash")), row=1, col=1)
-        fig.add_trace(go.Scatter(x=bb_lower.index, y=bb_lower, name="BB Lower", line=dict(color="rgba(88,166,255,0.4)", width=1, dash="dash"), fill='tonexty', fillcolor='rgba(88,166,255,0.04)'), row=1, col=1)
-        
-    # Row 2: Volume Subplot
+    # 2. Volume
     colors = ["#00C805" if cl >= op else "#FF3B30" for op, cl in zip(fdf["Open"], fdf["Close"])]
     fig.add_trace(go.Bar(
         x=fdf.index, y=fdf["Volume"],
         name="Volume", marker_color=colors, showlegend=False
     ), row=2, col=1)
-    fig.add_trace(go.Scatter(x=vol_sma20.index, y=vol_sma20, name="Vol SMA 20", line=dict(color="rgba(255,255,255,0.6)", width=1)), row=2, col=1)
     
-    current_row = 3
-    if show_rsi:
-        fig.add_trace(go.Scatter(x=rsi_series.index, y=rsi_series, name="RSI (14)", line=dict(color="#E040FB", width=1.5)), row=current_row, col=1)
-        fig.add_hline(y=70, line_dash="dash", line_color="rgba(255,59,48,0.5)", row=current_row, col=1)
-        fig.add_hline(y=30, line_dash="dash", line_color="rgba(0,200,5,0.5)", row=current_row, col=1)
-        fig.update_yaxes(range=[0, 100], tickvals=[30, 70], row=current_row, col=1)
-        current_row += 1
-        
-    if show_macd:
-        fig.add_trace(go.Scatter(x=m_line.index, y=m_line, name="MACD", line=dict(color="#58A6FF", width=1.5)), row=current_row, col=1)
-        fig.add_trace(go.Scatter(x=m_sig.index, y=m_sig, name="Signal", line=dict(color="#FFB020", width=1.5)), row=current_row, col=1)
-        h_colors = ["#00C805" if val >= 0 else "#FF3B30" for val in m_h]
-        fig.add_trace(go.Bar(x=m_h.index, y=m_h, name="Histogram", marker_color=h_colors, showlegend=False), row=current_row, col=1)
-        current_row += 1
-
-    chart_height = 550 + (90 if show_rsi else 0) + (90 if show_macd else 0)
-
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=10, b=10, l=10, r=10), height=chart_height,
+        margin=dict(t=10, b=10, l=10, r=10), height=550,
         dragmode='pan',
         font=dict(color="#8A94A6", family="'Inter', -apple-system, sans-serif", size=11),
         hovermode="x unified"
     )
     fig.update_xaxes(
         showgrid=True, gridcolor="#1E2433", showline=True, linecolor="#2A3142", ticks="outside",
-        showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6",
-        rangeslider_visible=False
+        showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6"
     )
+    fig.update_xaxes(rangeslider_visible=False) # Hide range slider on all subplots
     fig.update_yaxes(
         showgrid=True, gridcolor="#1E2433", side="right", showline=True, linecolor="#2A3142", ticks="outside",
         showspikes=True, spikethickness=1, spikedash="dash", spikemode="across", spikecolor="#8A94A6"
     )
     fig.update_yaxes(tickprefix="$", row=1, col=1)
     return fig
-
 
 # Callback route logic for pattern search
 def route_to_cheat_sheet(pattern_name):
@@ -1879,6 +2229,17 @@ def set_order_sell():
 # TAB 1: MARKET TERMINAL (MARKET HOME)
 # ──────────────────────────────────────────────────────────────────────────────
 if current_tab == "MARKET_HOME":
+    st.markdown(
+        """
+        <div class="rt-section-head">
+            <div>
+                <div class="rt-section-title">Market Home</div>
+                <div class="rt-section-sub">Live benchmarks · scanners · sector heat</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     # ── INDEX SNAPSHOT MATRIX (7 BENCHMARKS) ──
     with st.spinner("Loading indices..."):
         idx_data = get_index_snapshots()
@@ -1886,24 +2247,31 @@ if current_tab == "MARKET_HOME":
         indices_cols = st.columns(len(idx_data))
         for idx, item in enumerate(idx_data):
             with indices_cols[idx]:
-                with st.container(border=True):
-                    sign = "+" if item["pct"] >= 0 else ""
-                    pts_sign = "+" if item["pts"] >= 0 else ""
-                    cc_text = "#00C805" if item["pct"] >= 0 else "#FF3B30"
-                    
-                    header_html = f"""
-                    <div style="display:flex; align-items:center; justify-content:space-between; font-variant-numeric: tabular-nums; font-family:\'Inter\',-apple-system,sans-serif; margin-bottom: 4px; gap: 4px; width: 100%;">
-                        <span style="color:#8A94A6; font-weight:700; font-size:11px; text-transform:uppercase;">{item['name']}</span>
-                        <span style="color:#ffffff; font-weight:700; font-size:12px;">{item['close']:,.2f}</span>
-                        <span style="color:{cc_text}; font-weight:700; font-size:11px;">{pts_sign}{item['pts']:,.2f}</span>
-                        <span style="color:{cc_text}; font-weight:700; font-size:11px;">{sign}{item['pct']:.2f}%</span>
+                sign = "+" if item["pct"] >= 0 else ""
+                pts_sign = "+" if item["pts"] >= 0 else ""
+                cc_text = "#00C805" if item["pct"] >= 0 else "#FF3B30"
+                trend = "idx-up" if item["pct"] >= 0 else "idx-down"
+                st.markdown(
+                    f"""
+                    <div class="idx-tile {trend}" style="animation-delay:{idx * 0.04:.2f}s">
+                        <div class="idx-tile-top">
+                            <div>
+                                <div class="idx-name">{item['name']}</div>
+                                <div class="idx-price">{item['close']:,.2f}</div>
+                            </div>
+                            <div class="idx-chg">
+                                <span class="pts">{pts_sign}{item['pts']:,.2f}</span>
+                                <span class="pct">{sign}{item['pct']:.2f}%</span>
+                            </div>
+                        </div>
                     </div>
-                    """
-                    st.html(header_html)
-                    fig = make_sparkline(item["series"], color=cc_text)
-                    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                    """,
+                    unsafe_allow_html=True,
+                )
+                fig = make_sparkline(item["series"], color=cc_text)
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-    # ── 3-COLUMN FINVIZ MATRIX GRID ──
+# ── 3-COLUMN FINVIZ MATRIX GRID ──
     col1, col2, col3 = st.columns([1, 1.4, 1])
 
     with col1:
@@ -2041,115 +2409,32 @@ if current_tab == "MARKET_HOME":
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB: AI COPILOT ASSISTANT
-# ──────────────────────────────────────────────────────────────────────────────
-elif current_tab == "AI_COPILOT":
-    st.subheader("🤖 AI Market Copilot & Quantitative Reasoning Suite")
-    st.caption("Interact directly with your multi-model AI assistant powered by Featherless AI, Wolfram, and Gemini:")
-    
-    col_c1, col_c2 = st.columns([1.2, 2.8])
-    with col_c1:
-        st.markdown("""
-        <div class="fintech-card">
-            <div style="font-size:14px; font-weight:700; color:#FFFFFF; margin-bottom:8px;">⚡ Quick Prompt Triggers</div>
-            <p style="color:#8A94A6; font-size:12px; line-height:1.4;">Click any prompt to instantly run technical analysis or options risk scans:</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        qp_1 = st.button("📊 Analyze AAPL Technical Crossovers", use_container_width=True)
-        qp_2 = st.button("🛡️ Compute Risk & Max Position Caps", use_container_width=True)
-        qp_3 = st.button("🧮 Run Black-Scholes Options Greeks", use_container_width=True)
-        qp_4 = st.button("📰 Summarize Market Catalyst News", use_container_width=True)
-        
-        target_prompt = ""
-        if qp_1:
-            target_prompt = "What is the current technical setup for AAPL based on SMA 20 vs SMA 60 and RSI?"
-        elif qp_2:
-            target_prompt = "Calculate position sizing limits and volatility caps for TSLA."
-        elif qp_3:
-            target_prompt = "Explain how Black-Scholes Delta, Gamma, Theta, and Vega protect an options trade."
-        elif qp_4:
-            target_prompt = "What are the key market catalysts and news sentiment driving tech stocks today?"
-
-    with col_c2:
-        if "main_chat_messages" not in st.session_state:
-            st.session_state["main_chat_messages"] = [
-                {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, options Greeks, or trading risks!"}
-            ]
-            
-        main_chat_container = st.container(height=500)
-        with main_chat_container:
-            for msg in st.session_state["main_chat_messages"]:
-                st.chat_message(msg["role"]).write(msg["content"])
-                
-        user_main_input = st.chat_input("Ask AI Copilot about stocks, technicals, or options...")
-        prompt_to_send = target_prompt or user_main_input
-        
-        if prompt_to_send:
-            st.session_state["main_chat_messages"].append({"role": "user", "content": prompt_to_send})
-            with main_chat_container:
-                st.chat_message("user").write(prompt_to_send)
-                
-            selected_m = st.session_state.get("sidebar_model_select", "Qwen/Qwen2.5-72B-Instruct")
-            cur_ticker = st.session_state.get("active_ticker", "AAPL")
-            with st.spinner(f"Reasoning via {selected_m}..."):
-                reply = chat_with_ai_copilot(
-                    user_query=prompt_to_send,
-                    chat_history=st.session_state["main_chat_messages"],
-                    model_name=selected_m,
-                    context_ticker=cur_ticker
-                )
-            st.session_state["main_chat_messages"].append({"role": "assistant", "content": reply})
-            with main_chat_container:
-                st.chat_message("assistant").write(reply)
-            st.rerun()
-
-# ──────────────────────────────────────────────────────────────────────────────
-# TAB 3: INSTITUTIONAL NEWS WIRES & MARKET CATALYST ENGINE
+# TAB: NEWS
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "NEWS":
-    st.subheader("📰 Global Financial News & Market Catalyst Engine")
+    st.subheader("Market News")
+    st.caption("Live catalysts and wire headlines across major financial sources.")
     
-    # 1. Search & Filter Bar
-    n_col1, n_col2 = st.columns([2.5, 1.5])
-    with n_col1:
-        news_query = st.text_input("Search News Wires...", placeholder="Type keywords e.g. Earnings, Fed, Nvidia, Inflation...", key="news_search_input", label_visibility="collapsed")
-    with n_col2:
-        news_filter = st.selectbox("Sentiment Filter", ["All Wires", "Bullish Catalysts", "Bearish Risks"], key="news_filter_select", label_visibility="collapsed")
-
-    col_left, col_right = st.columns([2.6, 1.4])
+    col_left, col_right = st.columns([2.6, 1.4], gap="medium")
     
-    with st.spinner("Aggregating multi-channel news wires (Yahoo, CNBC, MarketWatch, Finnhub)..."):
-
-        raw_news = get_rss_news("^GSPC")
-
-    # Filter news based on search query & sentiment filter
-    filtered_news = raw_news
-    if news_query.strip():
-        q = news_query.strip().lower()
-        filtered_news = [n for n in filtered_news if q in n.get("title", "").lower() or q in n.get("summary_snippet", "").lower() or q in n.get("source", "").lower()]
+    with st.spinner("Retrieving news wires..."):
+        news = get_rss_news("^GSPC")
         
-    if news_filter == "Bullish Catalysts":
-        filtered_news = [n for n in filtered_news if n.get("badge") == "BULLISH"]
-    elif news_filter == "Bearish Risks":
-        filtered_news = [n for n in filtered_news if n.get("badge") == "BEARISH"]
-
     with col_left:
-        st.caption(f"Displaying **{len(filtered_news)}** verified news wire stories:")
-        if filtered_news:
-            for idx, n in enumerate(filtered_news[:25]):
+        if news:
+            for idx, n in enumerate(news):
                 st.html(clean_html(render_rich_news_card(n, idx)))
         else:
-            st.markdown("<div class='fintech-card'><div style='color:#8A94A6; font-size:12px;'>No matching news wire stories found for current query.</div></div>", unsafe_allow_html=True)
+            st.markdown("<div class='fintech-card'><div style='color:#8A94A6; font-size:12px;'>No general news available currently</div></div>", unsafe_allow_html=True)
             
     with col_right:
         st.subheader("Market Sentiment Consensus")
-        if raw_news:
-            scores = [n["sentiment_score"] for n in raw_news]
+        if news:
+            scores = [n["sentiment_score"] for n in news]
             avg_score = sum(scores) / len(scores) if scores else 0.0
-            bullish_cnt = sum(1 for n in raw_news if n["badge"] == "BULLISH")
-            bearish_cnt = sum(1 for n in raw_news if n["badge"] == "BEARISH")
-            neutral_cnt = sum(1 for n in raw_news if n["badge"] == "NEUTRAL")
+            bullish_cnt = sum(1 for n in news if n["badge"] == "BULLISH")
+            bearish_cnt = sum(1 for n in news if n["badge"] == "BEARISH")
+            neutral_cnt = sum(1 for n in news if n["badge"] == "NEUTRAL")
             
             consensus = "MIXED"
             cc_color = "#8A94A6"
@@ -2160,7 +2445,7 @@ elif current_tab == "NEWS":
                 consensus = "BEARISH RISK"
                 cc_color = "#FF3B30"
                 
-            st.html(clean_html(f"""
+            st.markdown(f"""
             <div class="fintech-card" style="margin-bottom:12px;">
                 <div style="font-size:10px; color:#8A94A6; font-weight:700; text-transform:uppercase; margin-bottom:4px;">Average Score Consensus</div>
                 <div style="font-size:24px; font-weight:800; color:{cc_color}; font-family:'JetBrains Mono', monospace; margin-bottom:4px;">{avg_score:+.2f}</div>
@@ -2172,14 +2457,14 @@ elif current_tab == "NEWS":
                     <div><span style="color:#FF3B30; font-weight:700;">{bearish_cnt}</span> Bearish</div>
                 </div>
             </div>
-            """))
+            """, unsafe_allow_html=True)
             
-            # Sentiment Gauge Chart
+            # Simple Plotly Gauge Chart for Sentiment
             fig_gauge = go.Figure(go.Indicator(
                 mode = "gauge+number",
                 value = avg_score,
                 domain = {'x': [0, 1], 'y': [0, 1]},
-                title = {'text': "Market Sentiment Index", 'font': {'size': 11, 'color': '#8A94A6'}},
+                title = {'text': "Sentiment Index", 'font': {'size': 11, 'color': '#8A94A6'}},
                 number = {'font': {'color': '#FFFFFF', 'size': 14}},
                 gauge = {
                     'axis': {'range': [-1, 1], 'tickwidth': 1, 'tickcolor': "#8A94A6"},
@@ -2206,37 +2491,32 @@ elif current_tab == "NEWS":
         trending_tickers = ["TSLA", "AAPL", "MSFT", "NVDA", "AMZN", "NFLX", "GOOGL", "META", "JPM", "V"]
         with st.spinner("Syncing watchlist..."):
             tr_prices = get_live_prices_batch(trending_tickers)
-            
-        t_rows = ""
+        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
+        st.markdown("""
+        <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
+            <thead>
+                <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase; text-align:left;">
+                    <th style="padding: 12px 14px; background-color: #11151F !important;">Symbol</th>
+                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Last Price</th>
+                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Change</th>
+                </tr>
+            </thead>
+            <tbody>
+        """, unsafe_allow_html=True)
         for tk in trending_tickers:
             info = get_ticker_info(tk)
             chg = info.get("day_change_pct", 0.0) or 0.0
             price = tr_prices.get(tk, info.get("previous_close", 150.0))
             sign = "+" if chg >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.12); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.25); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace; display:inline-block;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.12); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.25); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace; display:inline-block;"
-            t_rows += f"""
-            <tr style="border-bottom: 1px solid #1E2433;">
-                <td style="padding: 10px 12px; font-weight:700; width:30%;"><a href="/?tab=RESEARCH&ticker={tk}" target="_self" style="color:#58A6FF; text-decoration:none;">{tk}</a></td>
-                <td style="padding: 10px 12px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace; width:40%;">${price:,.2f}</td>
-                <td style="padding: 10px 12px; text-align:right; width:30%;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
-            </tr>
-            """
-            
-        st.html(clean_html(f"""
-        <div class="fintech-card" style="padding:0px !important;">
-        <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
-            <thead>
-                <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase;">
-                    <th style="padding: 10px 12px; text-align:left; background-color: #11151F !important; width:30%;">Symbol</th>
-                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important; width:40%;">Last Price</th>
-                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important; width:30%;">Change</th>
+            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+            st.markdown(f"""
+                <tr style="border-bottom: 1px solid #1E2433;">
+                    <td style="padding: 12px 14px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={tk}" target="_self" style="color:#58A6FF; text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='#00E676'" onmouseout="this.style.color='#58A6FF'">{tk}</a></td>
+                    <td style="padding: 12px 14px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">${price:,.2f}</td>
+                    <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
                 </tr>
-            </thead>
-            <tbody>{t_rows}</tbody>
-        </table>
-        </div>
-        """))
-
+            """, unsafe_allow_html=True)
+        st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "MARKETS":
@@ -2435,45 +2715,25 @@ elif current_tab == "MARKETS":
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 5: AI AGENT RESEARCH & YAHOO FINANCE DATA SUITE
+# TAB 5: AI AGENT RESEARCH
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "RESEARCH":
-    st.subheader("Stock Search & Technical Workstation")
-    
-    # 1. Main Search & Period Controls
-    sr1, sr2, sr3, sr4 = st.columns([2.5, 1.2, 1.2, 1.1])
+    # Search controls
+    st.subheader("Stock Search")
+    sr1, sr2, sr3 = st.columns([3, 1, 1])
     with sr1:
         ticker_input = st.text_input("Ticker Symbol", value=st.session_state.active_ticker, key="ticker_input_search", label_visibility="collapsed")
     with sr2:
-        chart_period = st.selectbox("Timeframe", ["1 Month", "3 Months", "6 Months", "1 Year", "5 Years", "Max"], index=3, key="timeframe_search", label_visibility="collapsed")
+        chart_period = st.selectbox("Timeframe", ["1 Month", "3 Months", "6 Months", "1 Year"], index=2, key="timeframe_search", label_visibility="collapsed")
     with sr3:
-        chart_type_val = st.selectbox("Chart Type", ["Candlestick", "Line (Area)"], index=0, key="chart_type_search", label_visibility="collapsed")
-    with sr4:
-        run_agent = st.button("Run Analytics", use_container_width=True, key="run_agent_search")
-
-    # 2. Interactive Indicator Toggles
-    with st.expander("⚙️ Customize Technical Indicators & Oscillators", expanded=False):
-        ic1, ic2, ic3, ic4 = st.columns(4)
-        with ic1:
-            t_ema9 = st.checkbox("EMA 9", value=False)
-            t_ema21 = st.checkbox("EMA 21", value=False)
-        with ic2:
-            t_sma20 = st.checkbox("SMA 20", value=True)
-            t_sma50 = st.checkbox("SMA 50", value=False)
-            t_sma60 = st.checkbox("SMA 60", value=True)
-        with ic3:
-            t_sma200 = st.checkbox("SMA 200", value=False)
-            t_bb = st.checkbox("Bollinger Bands (20, 2)", value=False)
-        with ic4:
-            t_rsi = st.checkbox("RSI Oscillator (14)", value=True)
-            t_macd = st.checkbox("MACD (12, 26, 9)", value=True)
+        run_agent = st.button("Run Analytics", width="stretch", key="run_agent_search")
 
     # Run analysis block
     if run_agent or "results" not in st.session_state or not st.session_state["results"]:
         symbol = ticker_input.strip().upper()
         if symbol:
             st.session_state["active_ticker"] = symbol
-            with st.spinner(f"Fetching real-time market data & running AI analytics for {symbol}..."):
+            with st.spinner(f"Analyzing {symbol}..."):
                 try:
                     data = get_stock_data(symbol)
                     if data["success"]:
@@ -2497,17 +2757,15 @@ elif current_tab == "RESEARCH":
     res_list = st.session_state.get("results", [])
     if res_list and res_list[0].get("success"):
         res = res_list[0]
-        sym = res.get("symbol", "N/A")
-        cl = res.get("last_close") or 0.0
-        ch = res.get("day_change_pct") or 0.0
+        sym = res["symbol"]
+        cl = res["last_close"]
+        ch = res["day_change_pct"]
         act = res.get("action_label", "HOLD")
         acls = res.get("action_class", "badge-hold")
         sign = "+" if ch > 0 else ""
 
-
-        # Safe Info Lookup & Fundamentals
+        # Safe Info Lookup
         info = get_ticker_info(sym)
-        funds = res.get("fundamentals") or {}
 
         # Header banner
         pill_color = "rgba(0, 200, 5, 0.15)" if ch >= 0 else "rgba(255, 59, 48, 0.15)"
@@ -2515,12 +2773,11 @@ elif current_tab == "RESEARCH":
         
         st.markdown(f"""
         <div class="fintech-card">
-            <div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:baseline; gap:16px;">
                 <span style="font-size:24px; font-weight:700; color:#FFFFFF;">{sym}</span>
-                <span style="font-size:14px; color:#8A94A6;">{info.get('long_name', sym)}</span>
+                <span style="font-size:14px; color:#8A94A6;">{info['long_name']}</span>
                 <span style="font-size:28px; font-weight:700; color:#FFFFFF;">${cl:.2f}</span>
                 <span style="background-color:{pill_color}; color:{text_color}; padding:4px 8px; border-radius:4px; font-weight:600; font-size:13px;">{sign}{ch:.2f}%</span>
-                <span style="margin-left:auto; font-size:11px; color:#8A94A6; font-family:'JetBrains Mono', monospace;">Sector: <b style="color:#58A6FF;">{funds.get('sector', 'N/A')}</b> | Industry: <b style="color:#FFFFFF;">{funds.get('industry', 'N/A')}</b></span>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -2530,249 +2787,167 @@ elif current_tab == "RESEARCH":
             with open("stock_research_report.md", "r") as f:
                 report_data = f.read()
             st.download_button(
-                label="📥 Download Full Research Report (Markdown)",
+                label="Download Research Report (Markdown)",
                 data=report_data,
                 file_name=f"{sym}_research_report.md",
                 mime="text/markdown"
             )
 
-        # Helper format functions for Yahoo Finance statistics table
-        def f_num(v, prefix="", suffix="", decimals=2):
-            if v is None or (isinstance(v, float) and np.isnan(v)): return "N/A"
-            if isinstance(v, (int, float)):
-                return f"{prefix}{v:,.{decimals}f}{suffix}"
-            return str(v)
-
-        def f_cap(v):
-            if not v or not isinstance(v, (int, float)) or v == 0: return "N/A"
-            if v >= 1e12: return f"${v/1e12:.2f}T"
-            if v >= 1e9: return f"${v/1e9:.2f}B"
-            if v >= 1e6: return f"${v/1e6:.2f}M"
-            return f"${v:,.0f}"
-
-        def f_pct(v):
-            if v is None or not isinstance(v, (int, float)): return "N/A"
-            return f"{v * 100:+.2f}%" if abs(v) < 2.0 else f"{v:+.2f}%"
-
-        # 4-COLUMN COMPREHENSIVE YAHOO FINANCE STATISTICS MATRIX
-        m_cap = funds.get("market_cap") or info.get("market_cap")
-        ev = funds.get("enterprise_value")
-        pe_t = funds.get("trailing_pe") or info.get("pe_ratio")
-        pe_f = funds.get("forward_pe")
-        peg = funds.get("peg_ratio")
-        pb = funds.get("price_to_book")
-        ev_ebitda = funds.get("ev_to_ebitda")
-        
-        prof_m = funds.get("profit_margin")
-        op_m = funds.get("operating_margin")
-        roa = funds.get("return_on_assets")
-        roe = funds.get("return_on_equity")
-        rev_g = funds.get("revenue_growth")
-        
-        t_mean = funds.get("target_mean_price")
-        t_high = funds.get("target_high_price")
-        t_low = funds.get("target_low_price")
-        rec_key = (funds.get("recommendation_key") or "N/A").replace("_", " ").upper()
-        upside_val = ((t_mean - cl)/cl)*100 if t_mean and cl > 0 else None
-        
-        hi_52 = funds.get("fifty_two_week_high") or info.get("fifty_two_high")
-        lo_52 = funds.get("fifty_two_week_low") or info.get("fifty_two_low")
-        beta_val = funds.get("beta") or info.get("beta")
-        short_r = funds.get("short_ratio")
-        div_y = funds.get("dividend_yield")
-        
+        # 4-Column statistics matrix (Yahoo Finance table style)
+        vol_pct = res.get('volatility', 0.0)
         st.markdown(f"""
-        <div class="fintech-card" style="padding: 14px !important; margin-bottom: 12px !important;">
-            <div style="font-size:12px; font-weight:800; color:#58A6FF; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:10px; border-bottom:1px solid #1E2433; padding-bottom:6px;">📊 Key Statistics & Financial Valuation Matrix</div>
+        <div class="fintech-card" style="padding: 12px !important; margin-bottom: 8px !important;">
             <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
-                <!-- Column 1: Valuation -->
+                <!-- Column 1 -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Market Cap</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_cap(m_cap)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Previous Close</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['previous_close']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Enterprise Val</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_cap(ev)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Open Price</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['open']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Trailing P/E</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pe_t, suffix="x")}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Forward P/E</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pe_f, suffix="x")}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">PEG Ratio</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(peg)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Bid Price</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['bid']:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Price / Book</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(pb, suffix="x")}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Ask Price</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['ask']:.2f}</td>
                     </tr>
                 </table>
-                
-                <!-- Column 2: Profitability -->
+                <!-- Column 2 -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Profit Margin</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(prof_m)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Day's Range</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size: 11px;">${info['day_low']:.2f} - ${info['day_high']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Oper. Margin</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(op_m)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">52-Week Range</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size: 11px;">${info['fifty_two_low']:.2f} - ${info['fifty_two_high']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Return on Assets</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(roa)}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Return on Equity</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(roe)}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Rev Growth YoY</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(rev_g)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Volume</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_volume(info['volume'])}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">EV / EBITDA</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(ev_ebitda, suffix="x")}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Avg Volume</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_volume(info['avg_volume'])}</td>
                     </tr>
                 </table>
-                
-                <!-- Column 3: Wall St Ratings -->
+                <!-- Column 3 -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Target Mean</td>
-                        <td style="text-align: right; color: #58A6FF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(t_mean, prefix="$")}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Market Cap</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{format_market_cap(info['market_cap'])}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Target Range</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size:10px;">${f_num(t_low)} - ${f_num(t_high)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Beta (5Y)</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{info['beta']:.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Implied Upside</td>
-                        <td style="text-align: right; color: {'#00C805' if (upside_val or 0) >= 0 else '#FF3B30'}; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(upside_val)}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Analyst Rating</td>
-                        <td style="text-align: right; color: #00E676; font-weight: 800; padding: 6px 0 !important; font-size:11px;">{rec_key}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Analyst Count</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(funds.get('num_analysts'), decimals=0)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">PE Ratio</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{info['pe_ratio']:.2f}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Beta (5Y)</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(beta_val)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">EPS (TTM)</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${info['eps']:.2f}</td>
                     </tr>
                 </table>
-                
-                <!-- Column 4: Trading Stats -->
+                <!-- Column 4 -->
                 <table style="width: 100%; border: none !important; border-collapse: collapse !important;">
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">52W Range</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums; font-size:10px;">${f_num(lo_52)} - ${f_num(hi_52)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">14-Day RSI</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{res.get('rsi', 50.0):.1f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">50-Day SMA</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(res.get('sma_50') or funds.get('fifty_day_average'), prefix="$")}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">20-Day SMA</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${res.get('sma_20', 0.0):.2f}</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">200-Day SMA</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(res.get('sma_200') or funds.get('two_hundred_day_average'), prefix="$")}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Short Ratio</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_num(short_r)}</td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #1E2433;">
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Dividend Yield</td>
-                        <td style="text-align: right; color: #FFFFFF; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{f_pct(div_y)}</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">60-Day SMA</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">${res.get('sma_60', 0.0):.2f}</td>
                     </tr>
                     <tr>
-                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 11px; text-transform: uppercase; font-weight:700;">Annual Volatility</td>
-                        <td style="text-align: right; color: #FFB020; font-weight: 700; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{res.get('volatility_pct', 0.0):.1f}%</td>
+                        <td style="color: #8A94A6; padding: 6px 0 !important; font-size: 12px; text-transform: uppercase; font-weight:600;">Annualized Vol</td>
+                        <td style="text-align: right; color: #FFFFFF; font-weight: 600; padding: 6px 0 !important; font-variant-numeric: tabular-nums;">{vol_pct:.1f}%</td>
                     </tr>
                 </table>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # 5. Interactive Quantitative Chart Engine
+        # Algorithmic Guidance Matrix
+        guidance_label = act
+        g_color = "#00C805" if "BUY" in guidance_label else ("#FF3B30" if "SELL" in guidance_label or "REDUCE" in guidance_label else "#8A94A6")
+        
+        # Breakdown computations
+        ma_diff = ((cl - res["sma_20"]) / res["sma_20"]) * 100 if res["sma_20"] > 0 else 0.0
+        direction = "above" if ma_diff >= 0 else "below"
+        boundary_state = "upward" if ma_diff >= 0 else "downward"
+        s_total = res.get("s_total", 0.0)
+        sentiment_direction = "bullish (positive)" if s_total > 0 else ("bearish (negative)" if s_total < 0 else "neutral")
+        
+        summary_sentence = f"""
+        <b>Short-Term Trend</b>: {sym} is trading <b>{direction}</b> its 20-day average price of ${res.get('sma_20', 0.0):.2f} by <b>{abs(ma_diff):.1f}%</b>. This indicates short-term <b>{boundary_state}</b> momentum.<br><br>
+        <b>News Sentiment</b>: Publisher consensus is <b>{sentiment_direction.upper()}</b> with a score of <b>{s_total:+.2f}</b>, reflecting generally favorable headlines and positive market expectations.
+        """
+
+        vol = res.get("volatility", 0.0)
+        vol_cap = min(25.0, (10.0 / (vol + 1e-9)) * 100) if vol > 0 else 0.0
+
+        rcol1, rcol2 = st.columns([1, 2])
+        with rcol1:
+            st.markdown(f"""
+            <div class="fintech-card" style="text-align:center; min-height: 120px;">
+                <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase;">Algorithmic Guidance</div>
+                <div style="font-size:24px; font-weight:800; color:{g_color}; margin-top:8px;">{guidance_label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with rcol2:
+            st.markdown(f"""
+            <div class="fintech-card" style="min-height: 120px;">
+                <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase; margin-bottom:4px;">Micro-Summarization Breakdown</div>
+                <div style="font-size:12px; color:#C9D1D9; line-height:1.4;">{summary_sentence}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown(f"""
+        <div class="fintech-card" style="border-left: 3px solid #00C805; padding: 10px !important;">
+            <div style="font-size:13px; color:#FFFFFF; font-weight:600;">Risk Protocol Status: Current asset exhibits a calculated 60-day annualized volatility metric of {vol:.1f}%. The position-sizing engine advises capping your theoretical capital deployment to exactly {vol_cap:.1f}% of total available portfolio equity balance sheets to shield capital from sudden price flips.</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Advanced multi-pane Plotly Subplot
         df_prices = res["prices"]
+        sma20_ser = df_prices["Close"].rolling(20).mean()
+        sma60_ser = df_prices["Close"].rolling(60).mean()
+        sma200_ser = df_prices["Close"].rolling(200).mean()
+        
+        # Subplot calculation values
+        macd_val, macd_sig, macd_hist = calculate_macd(df_prices["Close"])
+        ema12 = calculate_ema(df_prices["Close"], 12)
+        ema26 = calculate_ema(df_prices["Close"], 26)
+        macd_line = ema12 - ema26
+        macd_sig_line = calculate_ema(macd_line, 9)
+        macd_hist_line = macd_line - macd_sig_line
+        
+        rsi_series = df_prices["Close"].copy()
+        for idx in range(len(df_prices)):
+            sub_ser = df_prices["Close"].iloc[:idx+1]
+            rsi_series.iloc[idx] = calculate_rsi(sub_ser, 14)
+            
         now = df_prices.index[-1]
         if chart_period == "1 Month": cutoff = now - timedelta(days=30)
         elif chart_period == "3 Months": cutoff = now - timedelta(days=90)
         elif chart_period == "6 Months": cutoff = now - timedelta(days=180)
-        elif chart_period == "1 Year": cutoff = now - timedelta(days=365)
-        elif chart_period == "5 Years": cutoff = now - timedelta(days=365*5)
-        else: cutoff = df_prices.index[0]
+        else: cutoff = now - timedelta(days=365)
 
-        fig_advanced = make_advanced_chart(
-            df=df_prices,
-            cutoff_date=cutoff,
-            chart_type=chart_type_val,
-            show_ema9=t_ema9,
-            show_ema21=t_ema21,
-            show_sma20=t_sma20,
-            show_sma50=t_sma50,
-            show_sma60=t_sma60,
-            show_sma200=t_sma200,
-            show_bb=t_bb,
-            show_rsi=t_rsi,
-            show_macd=t_macd
-        )
-        
+        fig_advanced = make_advanced_chart(df_prices, cutoff, sma20_ser, sma60_ser, sma200_ser, rsi_series, macd_line, macd_sig_line, macd_hist_line)
         st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
         st.plotly_chart(fig_advanced, use_container_width=True, config={"displayModeBar": True, "scrollZoom": True})
         st.markdown("</div>", unsafe_allow_html=True)
-
-        # 6. AI Setup Evaluation Card
-        pred_lbl = res.get("prediction", "Neutral")
-        conf_pct = res.get("confidence_pct", 50)
-        setup_score = res.get("bullish_score", 50)
-        
-        pred_color = "#00C805" if pred_lbl == "Bullish" else ("#FF3B30" if pred_lbl == "Bearish" else "#FFB020")
-        
-        st.markdown(f"""
-        <div class="fintech-card" style="border-left:4px solid {pred_color}; margin-top:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div style="font-size:16px; font-weight:800; color:{pred_color}; font-family:'Inter', sans-serif;">
-                    🤖 AI Prediction: {pred_lbl.upper()} ({conf_pct}% Confidence)
-                </div>
-                <div style="font-size:13px; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">
-                    Setup Strength: <span style="color:#58A6FF;">{setup_score}/100</span>
-                </div>
-            </div>
-            <p style="color:#FFFFFF; font-size:13px; line-height:1.5; margin-bottom:12px;">{res.get('summary', '')}</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col_cat1, col_cat2 = st.columns(2)
-        with col_cat1:
-            st.markdown("<div class='fintech-card'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px; font-weight:700; color:#00C805; margin-bottom:6px;'>🟢 Bullish Catalysts & Key Drivers</div>", unsafe_allow_html=True)
-            for r in res.get("reasons", []):
-                st.markdown(f"<div style='font-size:12px; color:#C9D1D9; margin-bottom:4px;'>• {r}</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-        with col_cat2:
-            st.markdown("<div class='fintech-card'>", unsafe_allow_html=True)
-            st.markdown("<div style='font-size:12px; font-weight:700; color:#FF3B30; margin-bottom:6px;'>🔴 Bearish Warnings & Technical Risks</div>", unsafe_allow_html=True)
-            for r in res.get("risks", []):
-                st.markdown(f"<div style='font-size:12px; color:#C9D1D9; margin-bottom:4px;'>• {r}</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        # 7. Live Scraped News Feed with Real Images
-        st.subheader(f"📰 Live News & Catalyst Feed for {sym}")
-        news_items = res.get("news", [])
-        if news_items:
-            for idx, n in enumerate(news_items[:6]):
-                st.html(clean_html(render_rich_news_card(n, idx)))
-        else:
-            st.info("No recent news wire entries found for this ticker.")
-
 
         st.subheader("Industry Peer Comparison")
         # Select peers
@@ -3429,56 +3604,114 @@ elif current_tab == "PATTERN_GUIDE":
     <p style="color:#C9D1D9; line-height:1.4; margin-bottom:12px;">Support marks the historical floor where buyers emerge to halt price declines. Resistance marks the historical ceiling where sellers supply stock to prevent further advances. Computed from the 20-day high and low parameters.</p>
 </div>
 """, unsafe_allow_html=True)
+
 # ==============================================================================
-# SIDEBAR AI COPILOT CHAT ASSISTANT & MODEL SELECTOR
+# SIDEBAR — compact black AI helper
 # ==============================================================================
+_DEFAULT_SIDEBAR_MODEL = "Qwen/Qwen2.5-72B-Instruct"
+if "sidebar_model_select" not in st.session_state:
+    st.session_state["sidebar_model_select"] = _DEFAULT_SIDEBAR_MODEL
+
+
+def _render_side_chat_html(messages):
+    """Compact custom chat bubbles — logo avatars, no Streamlit smart_toy text."""
+    import html as _html
+    import re as _re
+
+    bubbles = []
+    for msg in messages[-12:]:
+        role = msg.get("role", "assistant")
+        raw = str(msg.get("content", ""))
+        parts = []
+        last = 0
+        for m in _re.finditer(r"\*\*(.+?)\*\*", raw):
+            parts.append(_html.escape(raw[last:m.start()]))
+            parts.append(f"<strong>{_html.escape(m.group(1))}</strong>")
+            last = m.end()
+        parts.append(_html.escape(raw[last:]))
+        body = "".join(parts).replace("\n", "<br>")
+        cls = "ai-bubble user" if role == "user" else "ai-bubble bot"
+        bubbles.append(f'<div class="{cls}">{body}</div>')
+    return '<div class="ai-chat-scroll">' + "".join(bubbles) + "</div>"
+
+
 with st.sidebar:
-    st.markdown("### 💬 AI Copilot Assistant")
-
-
-    st.caption("Chat with an institutional AI market assistant powered by Featherless AI:")
-    
-    selected_copilot_model = st.selectbox(
-        "Select Active AI Model:",
-        [
-            "Qwen/Qwen2.5-72B-Instruct",
-            "Wolfram|Alpha Conversational LLM",
-            "meta-llama/Llama-3.3-70B-Instruct",
-            "deepseek-ai/DeepSeek-V3",
-            "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
-            "meta-llama/Meta-Llama-3.1-8B-Instruct",
-            "google/gemma-2-27b-it"
-        ],
-        index=0,
-        key="sidebar_model_select"
+    context_ticker = (st.session_state.get("active_ticker") or "AAPL").strip().upper()
+    _side_logo = (
+        '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        '<path d="M4 16.5L9.2 11.2L12.8 14.8L20 7.5" stroke="#00E676" stroke-width="2.2" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M15.5 7.5H20V12" stroke="#58A6FF" stroke-width="2.2" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        '</svg>'
     )
-    
-    st.markdown("---")
-    
+    st.markdown(
+        f"""
+        <div class="ai-side-shell">
+            <div class="ai-side-head">
+                <div class="ai-side-logo">{_side_logo}</div>
+                <div>
+                    <div class="ai-side-title">Reverie AI</div>
+                    <div class="ai-side-sub">Market desk helper</div>
+                </div>
+                <div class="ai-side-status"><i></i>LIVE</div>
+            </div>
+            <div class="ai-side-chiprow">
+                <span class="ai-side-chip">Trend</span>
+                <span class="ai-side-chip">Risk</span>
+                <span class="ai-side-chip">Levels</span>
+            </div>
+            <div class="ai-side-ticker">
+                <span>Focus</span>
+                <strong>{context_ticker}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if "sidebar_chat_messages" not in st.session_state:
         st.session_state["sidebar_chat_messages"] = [
-            {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, or trading risks!"}
+            {
+                "role": "assistant",
+                "content": (
+                    f"Ready on **{context_ticker}**. Ask about trend, momentum, "
+                    "risk framing, or key levels."
+                ),
+            }
         ]
-        
-    chat_container = st.container(height=380)
-    with chat_container:
-        for msg in st.session_state["sidebar_chat_messages"]:
-            st.chat_message(msg["role"]).write(msg["content"])
-            
-    user_input = st.chat_input("Ask AI Copilot about stocks...")
+
+    st.markdown('<div class="ai-clear-wrap">', unsafe_allow_html=True)
+    clear_ai = st.button("Clear chat", use_container_width=True, key="sidebar_clear_chat")
+    st.markdown("</div>", unsafe_allow_html=True)
+    if clear_ai:
+        st.session_state["sidebar_chat_messages"] = [
+            {
+                "role": "assistant",
+                "content": f"Cleared. Still focused on **{context_ticker}**.",
+            }
+        ]
+        st.rerun()
+
+    st.markdown(
+        _render_side_chat_html(st.session_state["sidebar_chat_messages"]),
+        unsafe_allow_html=True,
+    )
+
+    user_input = st.chat_input(f"Ask about {context_ticker}…")
     if user_input:
         st.session_state["sidebar_chat_messages"].append({"role": "user", "content": user_input})
-        with chat_container:
-            st.chat_message("user").write(user_input)
-            
-        current_ticker = st.session_state.get("selected_ticker", "AAPL")
-        with st.spinner(f"Reasoning via {selected_copilot_model.split('/')[-1]}..."):
+        selected_copilot_model = st.session_state.get(
+            "sidebar_model_select", _DEFAULT_SIDEBAR_MODEL
+        )
+        with st.spinner("Thinking…"):
             reply = chat_with_ai_copilot(
                 user_query=user_input,
                 chat_history=st.session_state["sidebar_chat_messages"],
                 model_name=selected_copilot_model,
-                context_ticker=current_ticker
+                context_ticker=context_ticker,
             )
-        st.session_state["sidebar_chat_messages"].append({"role": "assistant", "content": reply})
-        with chat_container:
-            st.chat_message("assistant").write(reply)
+        st.session_state["sidebar_chat_messages"].append(
+            {"role": "assistant", "content": reply}
+        )
+        st.rerun()
