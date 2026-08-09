@@ -26,17 +26,22 @@ def run_heuristics(metrics: dict) -> dict:
     sentiment_score = metrics.get("sentiment_score", 0.0)
     
     # 1. Compute a technical and momentum rating score (0 - 100)
-    # Neutral starting point
     score = 50
+
+    # ML Model Weighting (if available)
+    ml_prob = metrics.get("ml_bullish_prob")
+    if ml_prob is not None:
+        score = int(round(score * 0.5 + ml_prob * 0.5))
     
     # Trend alignment (Max +20 / -20)
     if close > 0:
-        if close > sma5: score += 5
+        if close > sma5: score += 4
+        else: score -= 4
+        if close > sma20: score += 5
         else: score -= 5
-        if close > sma20: score += 7
-        else: score -= 7
-        if close > sma60: score += 8
-        else: score -= 8
+        if close > sma60: score += 6
+        else: score -= 6
+
         
     # Moving Average crossovers (Max +10 / -10)
     if sma5 > sma20: score += 5
@@ -84,7 +89,13 @@ def run_heuristics(metrics: dict) -> dict:
     risks = []
     
     # Generating Reasons
+    ml_prob = metrics.get("ml_bullish_prob")
+    ml_acc = metrics.get("ml_accuracy_pct")
+    if ml_prob is not None and ml_acc:
+        reasons.append(f"Quantitative ML Predictive Model (Random Forest / Gradient Boosting) forecasts a {ml_prob:.1f}% probability of 5-day gains (Backtest Hit Rate: {ml_acc:.1f}%).")
+
     if target_price and close > 0 and ((target_price - close) / close) * 100 > 10.0:
+
         reasons.append(f"Wall Street consensus price target of ${target_price:.2f} offers a +{((target_price - close)/close)*100:.1f}% implied upside.")
     if close > sma20 and close > sma60:
         reasons.append(f"Price is trading above key support levels (20-day SMA of ${sma20:.2f} and 60-day SMA of ${sma60:.2f}), signaling a strong technical uptrend.")
