@@ -403,13 +403,18 @@ st.markdown("""
     }
 
     .block-container {
-        max-width: 1480px !important;
-        padding: calc(var(--nav-h) + 18px) 24px 28px 24px !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding-top: calc(var(--nav-h) + 14px) !important;
+        padding-bottom: 24px !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
         background: transparent !important;
         position: relative;
         z-index: 1;
         animation: fadeInUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
     }
+
 
     [data-testid="stVerticalBlock"] { gap: 0.9rem !important; }
     div[data-testid="stHorizontalBlock"] {
