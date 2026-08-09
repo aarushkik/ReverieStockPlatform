@@ -801,8 +801,11 @@ st.markdown("""
         background: linear-gradient(180deg, #0a0d13, #07090e);
         border: 1px solid #171c27;
         border-radius: 12px;
-        padding: 12px;
+        padding: 14px;
         box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 10px 24px rgba(0,0,0,0.28);
+        width: 100%;
+        display: flex;
+        flex-direction: column;
     }
     .ai-side-head {
         display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
@@ -866,15 +869,18 @@ st.markdown("""
 
     /* Custom AI chat bubbles (no smart_toy) */
     .ai-chat-scroll {
-        max-height: 280px;
+        max-height: 480px;
+        min-height: 240px;
+        flex-grow: 1;
         overflow-y: auto;
-        padding: 2px 1px 6px 1px;
+        padding: 4px 2px 8px 2px;
         display: flex;
         flex-direction: column;
         gap: 8px;
         scrollbar-width: thin;
         margin: 8px 0 4px 0;
     }
+
     .ai-bubble {
         border-radius: 10px;
         padding: 9px 10px 9px 36px;
@@ -1029,20 +1035,22 @@ st.markdown("""
     }
     a, button { -webkit-tap-highlight-color: transparent; }
 
-    /* Compact sidebar width */
-    :root { --sidebar-w: 268px; }
+    /* Expanded sidebar width & full vertical stretch */
+    :root { --sidebar-w: 340px; }
     section[data-testid="stSidebar"] {
-        min-width: 268px !important;
-        width: 268px !important;
-        max-width: 268px !important;
+        min-width: 340px !important;
+        width: 340px !important;
+        max-width: 340px !important;
         height: 100vh !important;
         min-height: 100vh !important;
         transform: none !important;
+        background: linear-gradient(180deg, #07090e 0%, #0a0e16 50%, #07090e 100%) !important;
     }
     section[data-testid="stSidebar"] [data-testid="stBottomBlockContainer"] {
         background: transparent !important;
-        padding-bottom: 8px !important;
+        padding-bottom: 12px !important;
     }
+
 
     /* Widget label polish */
     [data-testid="stWidgetLabel"] p {
