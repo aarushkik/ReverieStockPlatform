@@ -3,40 +3,40 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-07 20:49:06*
+*Report generated on: 2026-08-08 21:48:32*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Bearish** outlook with **60%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Bullish** outlook with **70%** prediction confidence. This assessment is driven by bullish news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Bearish (60% Confidence)
+### AAPL - Bullish (70% Confidence)
 
 **Last Close:** $313.33 (+0.29%)  
 **Technical Indicators:** 5-Day SMA: $309.91 | 20-Day SMA: $323.43 | 60-Day SMA: $308.64  
 **Volatility:** 37.4% (High)  
-**Sentiment Scored:** Neutral (Rating: -0.10)  
+**Sentiment Scored:** Bullish (Rating: 0.30)  
 
 **Agent Evaluation Summary:**  
-["Apple's stock has experienced mixed signals recently, with short-term gains but longer-term declines.", 'Investors should be cautious due to high volatility and potential impacts from supply chain issues and legal disputes.', 'The overall outlook suggests a need for careful consideration before making investment decisions.']
+["Apple's stock has shown resilience with a slight daily increase and a notable 60-day gain, supported by a bullish sentiment rating.", 'Investors should be aware of the high volatility and potential supply chain challenges.', "Overall, the outlook appears positive, driven by analyst expectations and the company's continued involvement in emerging technologies like AI."]
 
 #### 🟢 Key Bullish Catalysts
-- The stock's recent price change shows a decline over the 20-day period, indicating potential downward momentum.
-- The annualized volatility is high at 37.4%, which could lead to unpredictable price swings.
-- News headlines mention supply constraints and margin concerns, which might negatively impact future earnings.
+- The recent price action shows a slight increase in the last day and a significant gain over the 60-day period, indicating a positive trend.
+- The sentiment rating is bullish, and the target mean price from analysts suggests an expected increase in value.
+- Despite some fluctuations, the overall news headlines suggest ongoing innovation and investment in the company.
 
 #### 🔴 Key Bearish Risks & Warnings
-- High volatility poses a significant risk to investors, as it can result in substantial losses if not managed properly.
-- Ongoing legal battles and increasing competition in the tech industry may further affect the stock's performance.
+- High annualized volatility poses a risk to investors seeking stable returns.
+- Supply constraints and margin pressures could impact future performance.
 
 #### 📰 Recent Headlines Feed
-- **Aug 07, 2026** - [OpenAI developing $300+ AI speaker to challenge Amazon Alexa](https://finance.yahoo.com/video/openai-developing-300-ai-speaker-202000842.html) (*Yahoo Finance Video*)
-- **Aug 07, 2026** - [What we know about OpenAI's upcoming handheld device: Bloomberg](https://finance.yahoo.com/video/know-openais-upcoming-handheld-device-140247594.html) (*Yahoo Finance Video*)
-- **Aug 08, 2026** - [Apple (AAPL) Q3 2026 Earnings Call Transcript](https://finance.yahoo.com/markets/stocks/articles/apple-aapl-q3-2026-earnings-013018032.html) (*Motley Fool*)
-- **Aug 08, 2026** - [Apple (AAPL) Tops $10 Billion in India Sales, But Wall Street’s Focus Is on Supply Constraints and Margins](https://finance.yahoo.com/markets/stocks/articles/apple-aapl-tops-10-billion-011329749.html) (*Insider Monkey*)
-- **Aug 07, 2026** - [MP Earnings Show Chinese Rare-Earth Monopoly Is Fading. The Stock Is Up.](https://www.barrons.com/articles/mp-materials-earnings-stock-price-269904ba?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
+- **Aug 08, 2026** - [VGT Puts 39 Cents of Every Dollar Into Just 3 Stocks. The Pairing That Fixes It Without Selling](https://finance.yahoo.com/markets/stocks/articles/vgt-puts-39-cents-every-170051483.html) (*24/7 Wall St.*)
+- **Aug 08, 2026** - [Berkshire Hathaway Just Did Something It Hasn’t Done in More Than 3 Years](https://finance.yahoo.com/markets/stocks/articles/berkshire-hathaway-just-did-something-162705397.html) (*24/7 Wall St.*)
+- **Aug 08, 2026** - [Bank of America revamps Apple stock price target after earnings](https://finance.yahoo.com/markets/stocks/articles/bank-america-revamps-apple-stock-151700799.html) (*TheStreet*)
+- **Aug 08, 2026** - [Apple says Mac users in China can connect to Alibaba's Qwen AI service](https://finance.yahoo.com/technology/ai/articles/apple-says-mac-users-china-123458419.html) (*Reuters*)
+- **Aug 08, 2026** - [Dan Ives Says We're in the "3rd Inning" of the AI Revolution. Is Nvidia Stock Still a Buy After the Pullback?](https://finance.yahoo.com/technology/ai/articles/dan-ives-says-were-3rd-090400850.html) (*Motley Fool*)
 
 ---
 
