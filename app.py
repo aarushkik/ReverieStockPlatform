@@ -643,6 +643,10 @@ st.markdown("""
         font-size: 12.5px !important;
         font-weight: 600 !important;
         padding: 0.45rem 0.9rem !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        position: relative !important;
+        z-index: 5 !important;
         transition: all 0.18s cubic-bezier(0.16,1,0.3,1) !important;
     }
     div.stButton > button:hover, div.stDownloadButton > button:hover {
@@ -656,6 +660,11 @@ st.markdown("""
         transform: translateY(0) scale(0.98) !important;
         animation: clickRipple 0.35s ease-out;
     }
+    a, button {
+        cursor: pointer !important;
+        pointer-events: auto !important;
+    }
+
 
     /* Status chips */
     .color-green { color: var(--accent) !important; }
@@ -819,15 +828,15 @@ st.markdown("""
     }
     .ai-side-logo svg { width: 18px; height: 18px; display: block; }
     .ai-side-title {
-        font-size: 12px; font-weight: 700; color: #f2f4f7; letter-spacing: 0.4px;
+        font-size: 14px; font-weight: 800; color: #f2f4f7; letter-spacing: 0.4px;
         text-transform: uppercase; line-height: 1.1;
     }
     .ai-side-sub {
-        font-size: 10.5px; color: #7f8899; margin-top: 3px; font-weight: 500;
+        font-size: 12px; color: #7f8899; margin-top: 3px; font-weight: 500;
     }
     .ai-side-status {
         margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
-        font-size: 10px; color: #8d97a8; font-weight: 600; letter-spacing: 0.3px;
+        font-size: 11.5px; color: #8d97a8; font-weight: 600; letter-spacing: 0.3px;
     }
     .ai-side-status i {
         width: 6px; height: 6px; border-radius: 50%; background: #00C805;
@@ -835,16 +844,16 @@ st.markdown("""
     }
     .ai-side-chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
     .ai-side-chip {
-        font-size: 10px; color: #9aa3b2; background: #0d1118; border: 1px solid #1a2030;
-        border-radius: 999px; padding: 3px 8px; font-weight: 600;
+        font-size: 11.5px; color: #9aa3b2; background: #0d1118; border: 1px solid #1a2030;
+        border-radius: 999px; padding: 4px 10px; font-weight: 600;
     }
     .ai-side-ticker {
         margin-top: 10px; display: flex; align-items: center; justify-content: space-between;
         background: #0b0f16; border: 1px solid #171d29; border-radius: 8px; padding: 8px 10px;
     }
-    .ai-side-ticker span { font-size: 10px; color: #7f8899; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+    .ai-side-ticker span { font-size: 11px; color: #7f8899; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
     .ai-side-ticker strong {
-        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e8edf5; font-weight: 700;
+        font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #e8edf5; font-weight: 700;
     }
 
     section[data-testid="stSidebar"] [data-testid="stChatInput"] {
@@ -857,7 +866,7 @@ st.markdown("""
         border: 1px solid #1a2030 !important;
         color: #e8edf5 !important;
         border-radius: 10px !important;
-        font-size: 12px !important;
+        font-size: 13.5px !important;
     }
     /* Fully hide Streamlit chat avatars (smart_toy text) — custom bubbles used */
     section[data-testid="stSidebar"] [data-testid="stChatMessage"],
@@ -883,15 +892,16 @@ st.markdown("""
 
     .ai-bubble {
         border-radius: 10px;
-        padding: 9px 10px 9px 36px;
-        font-size: 12px;
-        line-height: 1.45;
-        color: #c9d1dc;
+        padding: 11px 12px 11px 38px;
+        font-size: 14px;
+        line-height: 1.55;
+        color: #f0f4f8;
         border: 1px solid #171d29;
         background: #0b0f16;
         animation: fadeInUp 0.28s ease both;
         position: relative;
     }
+
     .ai-bubble::before {
         content: "";
         position: absolute;
@@ -1514,46 +1524,75 @@ def get_market_scanners() -> dict:
 
 @st.cache_data(ttl=300)
 def get_futures_commodities() -> list:
-    symbols = ["ES=F", "YM=F", "NQ=F", "GC=F", "CL=F", "SI=F", "^TNX"]
+    symbols = [
+        "ES=F", "NQ=F", "YM=F", "RTY=F",
+        "GC=F", "CL=F", "SI=F", "NG=F", "HG=F", "ZC=F", "ZW=F",
+        "^TNX", "^VIX", "^IRX",
+        "BTC-USD", "ETH-USD", "SOL-USD",
+        "EURUSD=X", "JPY=X"
+    ]
     names = {
         "ES=F": "S&P 500 Futures",
-        "YM=F": "Dow Futures",
         "NQ=F": "Nasdaq Futures",
-        "GC=F": "Gold",
-        "CL=F": "Crude Oil",
-        "SI=F": "Silver",
-        "^TNX": "10-Year Yield"
+        "YM=F": "Dow Futures",
+        "RTY=F": "Russell 2000 Futures",
+        "GC=F": "Gold Futures",
+        "CL=F": "Crude Oil WTI",
+        "SI=F": "Silver Futures",
+        "NG=F": "Natural Gas",
+        "HG=F": "Copper Futures",
+        "ZC=F": "Corn Futures",
+        "ZW=F": "Wheat Futures",
+        "^TNX": "10-Yr Treasury Yield",
+        "^VIX": "VIX Volatility Index",
+        "^IRX": "13-Wk Treasury Bill",
+        "BTC-USD": "Bitcoin (BTC)",
+        "ETH-USD": "Ethereum (ETH)",
+        "SOL-USD": "Solana (SOL)",
+        "EURUSD=X": "EUR / USD",
+        "JPY=X": "USD / JPY"
     }
-    try:
-        data = yf.download(symbols, period="2d", group_by="ticker", progress=False)
-        records = []
-        for sym in symbols:
-            if sym in data and not data[sym].empty:
-                df = data[sym].dropna()
-                if len(df) >= 2:
-                    cl = float(df["Close"].iloc[-1])
-                    cp = float(df["Close"].iloc[-2])
-                    chg = cl - cp
-                    chg_pct = (chg / cp) * 100
-                    records.append({
-                        "symbol": sym,
-                        "name": names.get(sym, sym),
-                        "price": cl,
-                        "change": chg,
-                        "pct": chg_pct
-                    })
+    records = []
+    for sym in symbols:
+        try:
+            t = yf.Ticker(sym)
+            df = t.history(period="5d")
+            if len(df) >= 2:
+                cl = float(df["Close"].iloc[-1])
+                cp = float(df["Close"].iloc[-2])
+                chg = cl - cp
+                chg_pct = (chg / cp) * 100
+                records.append({
+                    "symbol": sym,
+                    "name": names.get(sym, sym),
+                    "price": cl,
+                    "change": chg,
+                    "pct": chg_pct
+                })
+        except Exception:
+            pass
+    if len(records) >= 5:
         return records
-    except Exception:
-        pass
+
     return [
         {"symbol": "ES=F", "name": "S&P 500 Futures", "price": 5420.25, "change": 12.50, "pct": 0.23},
-        {"symbol": "YM=F", "name": "Dow Futures", "price": 39510.00, "change": -45.00, "pct": -0.11},
         {"symbol": "NQ=F", "name": "Nasdaq Futures", "price": 19250.75, "change": 88.20, "pct": 0.46},
-        {"symbol": "GC=F", "name": "Gold", "price": 2354.20, "change": 14.80, "pct": 0.63},
-        {"symbol": "CL=F", "name": "Crude Oil", "price": 81.35, "change": -0.42, "pct": -0.51},
-        {"symbol": "SI=F", "name": "Silver", "price": 30.25, "change": 0.18, "pct": 0.60},
-        {"symbol": "^TNX", "name": "10-Year Yield", "price": 4.225, "change": 0.015, "pct": 0.36}
+        {"symbol": "YM=F", "name": "Dow Futures", "price": 39510.00, "change": -45.00, "pct": -0.11},
+        {"symbol": "RTY=F", "name": "Russell 2000 Futures", "price": 2045.30, "change": 14.20, "pct": 0.70},
+        {"symbol": "GC=F", "name": "Gold Futures", "price": 2354.20, "change": 14.80, "pct": 0.63},
+        {"symbol": "CL=F", "name": "Crude Oil WTI", "price": 81.35, "change": -0.42, "pct": -0.51},
+        {"symbol": "SI=F", "name": "Silver Futures", "price": 30.25, "change": 0.18, "pct": 0.60},
+        {"symbol": "NG=F", "name": "Natural Gas", "price": 2.65, "change": 0.04, "pct": 1.53},
+        {"symbol": "HG=F", "name": "Copper Futures", "price": 4.45, "change": -0.03, "pct": -0.67},
+        {"symbol": "^TNX", "name": "10-Yr Treasury Yield", "price": 4.225, "change": 0.015, "pct": 0.36},
+        {"symbol": "^VIX", "name": "VIX Volatility Index", "price": 14.85, "change": -0.35, "pct": -2.30},
+        {"symbol": "BTC-USD", "name": "Bitcoin (BTC)", "price": 64500.00, "change": 1250.00, "pct": 1.98},
+        {"symbol": "ETH-USD", "name": "Ethereum (ETH)", "price": 3480.00, "change": 65.00, "pct": 1.90},
+        {"symbol": "SOL-USD", "name": "Solana (SOL)", "price": 142.50, "change": 4.20, "pct": 3.04},
+        {"symbol": "EURUSD=X", "name": "EUR / USD", "price": 1.0885, "change": 0.0012, "pct": 0.11},
+        {"symbol": "JPY=X", "name": "USD / JPY", "price": 157.20, "change": -0.45, "pct": -0.29}
     ]
+
 
 def get_recent_insiders() -> list:
     names = [
@@ -2426,11 +2465,11 @@ if current_tab == "MARKET_HOME":
             st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No breakout events</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── BOTTOM ROW WIDGETS (COMMODITIES & INSIDERS) ──
-    row_futures, row_insiders = st.columns([1.4, 2.6])
-    
+    # ── BOTTOM ROW WIDGETS (COMMODITIES, CRYPTO, FOREX & INSIDERS) ──
+    row_futures, row_insiders = st.columns([1.5, 2.5], gap="medium")
+
     with row_futures:
-        st.subheader("Futures & Commodities")
+        st.subheader("Futures, Commodities & Crypto")
         futures = get_futures_commodities()
         st.markdown("""
         <style>
@@ -2445,9 +2484,9 @@ if current_tab == "MARKET_HOME":
         <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
             <thead>
                 <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase; text-align:left;">
-                    <th style="padding: 12px 14px; background-color: #11151F !important;">Index / Future</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Last Price</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Change</th>
+                    <th style="padding: 10px 12px; background-color: #11151F !important;">Asset / Instrument</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important;">Last Price</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important;">24H / 1D Change</th>
                 </tr>
             </thead>
             <tbody>
@@ -2455,50 +2494,74 @@ if current_tab == "MARKET_HOME":
         for idx, item in enumerate(futures):
             c_val = item["pct"]
             sign = "+" if c_val >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if c_val >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if c_val >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 3px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid #1E2433;">
-                    <td style="padding: 12px 14px; font-weight:700; color:#FFFFFF;">{item['name']} <span style="font-size:9px; color:#8A94A6; font-family:'JetBrains Mono', monospace;">({item['symbol']})</span></td>
-                    <td style="padding: 12px 14px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">{item['price']:,.2f}</td>
-                    <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{sign}{c_val:.2f}%</span></td>
+                    <td style="padding: 10px 12px; font-weight:700; color:#FFFFFF;">{item['name']} <span style="font-size:9.5px; color:#8A94A6; font-family:'JetBrains Mono', monospace;">({item['symbol']})</span></td>
+                    <td style="padding: 10px 12px; text-align:right; font-weight:700; color:#FFFFFF; font-family:'JetBrains Mono', monospace;">{item['price']:,.2f}</td>
+                    <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">{sign}{c_val:.2f}%</span></td>
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
     with row_insiders:
-        st.subheader("Recent Insider Transactions")
+        st.subheader("Recent Insider Transactions & Major Trades")
         insiders = get_recent_insiders()
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown("""
         <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
             <thead>
                 <tr style="border-bottom:1px solid #1E2433; color:#8A94A6; font-size:11px; text-transform:uppercase; text-align:left;">
-                    <th style="padding: 12px 14px; background-color: #11151F !important;">Ticker</th>
-                    <th style="padding: 12px 14px; background-color: #11151F !important;">Insider Owner</th>
-                    <th style="padding: 12px 14px; background-color: #11151F !important;">Relationship</th>
-                    <th style="padding: 12px 14px; text-align:center; background-color: #11151F !important;">Trade</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Cost</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Shares</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: #11151F !important;">Value ($)</th>
+                    <th style="padding: 10px 12px; background-color: #11151F !important;">Ticker</th>
+                    <th style="padding: 10px 12px; background-color: #11151F !important;">Insider Owner</th>
+                    <th style="padding: 10px 12px; background-color: #11151F !important;">Relationship</th>
+                    <th style="padding: 10px 12px; text-align:center; background-color: #11151F !important;">Trade</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important;">Cost</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important;">Shares</th>
+                    <th style="padding: 10px 12px; text-align:right; background-color: #11151F !important;">Value ($)</th>
                 </tr>
             </thead>
             <tbody>
         """, unsafe_allow_html=True)
         for idx, item in enumerate(insiders):
-            action_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;" if item["type"] == "Buy" else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;"
+            action_style = "background-color: rgba(0, 230, 118, 0.08); color: #00E676; border: 1px solid rgba(0, 230, 118, 0.2); padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;" if item["type"] == "Buy" else "background-color: rgba(255, 23, 68, 0.08); color: #FF1744; border: 1px solid rgba(255, 23, 68, 0.2); padding: 3px 8px; border-radius: 4px; font-weight: 800; font-size: 10px;"
             action_html = f'<span style="{action_style}">{item["type"].upper()}</span>'
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid #1E2433;">
-                    <td style="padding: 12px 14px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={item['ticker']}" target="_self" style="color:#58A6FF; text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='#00E676'" onmouseout="this.style.color='#58A6FF'">{item['ticker']}</a></td>
-                    <td style="padding: 12px 14px; color:#FFFFFF;">{item['owner']}</td>
-                    <td style="padding: 12px 14px; color:#8A94A6;">{item['relation']}</td>
-                    <td style="padding: 12px 14px; text-align:center;">{action_html}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:#FFFFFF;">${item['price']:.2f}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:#FFFFFF;">{item['shares']:,}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700; color:#FFFFFF;">${item['value']:,.0f}</td>
+                    <td style="padding: 10px 12px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={item['ticker']}" target="_self" style="color:#58A6FF; text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='#00E676'" onmouseout="this.style.color='#58A6FF'">{item['ticker']}</a></td>
+                    <td style="padding: 10px 12px; color:#FFFFFF;">{item['owner']}</td>
+                    <td style="padding: 10px 12px; color:#8A94A6;">{item['relation']}</td>
+                    <td style="padding: 10px 12px; text-align:center;">{action_html}</td>
+                    <td style="padding: 10px 12px; text-align:right; font-family:'JetBrains Mono', monospace; color:#FFFFFF;">${item['price']:.2f}</td>
+                    <td style="padding: 10px 12px; text-align:right; font-family:'JetBrains Mono', monospace; color:#FFFFFF;">{item['shares']:,}</td>
+                    <td style="padding: 10px 12px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700; color:#FFFFFF;">${item['value']:,.0f}</td>
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
+
+        st.subheader("Global Macro & Asset Allocation Indicators")
+        st.markdown("""
+        <div class="fintech-card" style="padding:14px !important;">
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:14px; text-align:center;">
+                <div style="background:#0b0f16; padding:10px; border-radius:8px; border:1px solid #1A2030;">
+                    <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase;">US 10-Yr Yield</div>
+                    <div style="font-size:16px; font-weight:800; color:#FFFFFF; margin-top:4px; font-family:'JetBrains Mono', monospace;">4.66%</div>
+                    <div style="font-size:10px; color:#FF3B30; margin-top:2px;">-0.21%</div>
+                </div>
+                <div style="background:#0b0f16; padding:10px; border-radius:8px; border:1px solid #1A2030;">
+                    <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase;">VIX Volatility</div>
+                    <div style="font-size:16px; font-weight:800; color:#00E676; margin-top:4px; font-family:'JetBrains Mono', monospace;">14.85</div>
+                    <div style="font-size:10px; color:#00E676; margin-top:2px;">-2.30% (Low Risk)</div>
+                </div>
+                <div style="background:#0b0f16; padding:10px; border-radius:8px; border:1px solid #1A2030;">
+                    <div style="font-size:10px; color:#8A94A6; font-weight:600; text-transform:uppercase;">Dollar Index (DXY)</div>
+                    <div style="font-size:16px; font-weight:800; color:#58A6FF; margin-top:4px; font-family:'JetBrains Mono', monospace;">104.20</div>
+                    <div style="font-size:10px; color:#00E676; margin-top:2px;">+0.12%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # TAB: NEWS
