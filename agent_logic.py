@@ -57,6 +57,9 @@ def run_heuristics(metrics: dict) -> dict:
     if change_60d is not None:
         score += 5 if change_60d > 0 else -5
         
+    reasons = []
+    risks = []
+
     # Target Price & Fundamentals evaluation
     funds = metrics.get("fundamentals") or {}
     target_price = funds.get("target_mean_price")
@@ -72,7 +75,7 @@ def run_heuristics(metrics: dict) -> dict:
     # Clip score between 0 and 100
     score = max(0, min(100, score))
     metrics["bullish_score"] = score
-    
+
     # 2. Determine Directional Prediction and Confidence
     if score >= 60:
         prediction = "Bullish"
@@ -83,10 +86,9 @@ def run_heuristics(metrics: dict) -> dict:
     else:
         prediction = "Neutral"
         confidence = int(100 - abs(score - 50) * 4)  # 60% to 100% confidence in neutral trend
-        
+
     # 3. Heuristic Reasoning generation
-    reasons = []
-    risks = []
+
     
     # Generating Reasons
     ml_prob = metrics.get("ml_bullish_prob")
