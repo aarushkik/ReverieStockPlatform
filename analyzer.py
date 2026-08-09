@@ -174,16 +174,26 @@ def analyze_sentiment(news_articles: list) -> dict:
         "description": f"{label} sentiment calculated across {total_articles} recent articles (Score: {avg_score:.2f})."
     }
 
-def run_analysis(symbol: str, data: dict) -> dict:
+def run_analysis(symbol_or_data, data: dict = None) -> dict:
     """
     Main entry point for analytics. Combines price metrics, indicators, volatility, sentiment, and fundamentals.
+    Supports both run_analysis(symbol, data) and run_analysis(data).
     """
-    if not data["success"]:
+    if isinstance(symbol_or_data, dict) and data is None:
+        data = symbol_or_data
+        symbol = data.get("symbol", "UNKNOWN")
+    else:
+        symbol = symbol_or_data
+        if data is None:
+            data = {"success": False, "error_message": "No market data provided."}
+
+    if not data.get("success", False):
         return {
             "symbol": symbol,
             "success": False,
-            "error_message": data["error_message"]
+            "error_message": data.get("error_message", "Failed to retrieve stock data.")
         }
+
         
     df = data["prices"]
     news = data["news"]

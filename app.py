@@ -2514,12 +2514,13 @@ elif current_tab == "RESEARCH":
     res_list = st.session_state.get("results", [])
     if res_list and res_list[0].get("success"):
         res = res_list[0]
-        sym = res["symbol"]
-        cl = res["last_close"]
-        ch = res["day_change_pct"]
+        sym = res.get("symbol", "N/A")
+        cl = res.get("last_close") or 0.0
+        ch = res.get("day_change_pct") or 0.0
         act = res.get("action_label", "HOLD")
         acls = res.get("action_class", "badge-hold")
         sign = "+" if ch > 0 else ""
+
 
         # Safe Info Lookup & Fundamentals
         info = get_ticker_info(sym)

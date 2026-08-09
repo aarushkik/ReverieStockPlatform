@@ -282,12 +282,16 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
         logger.warning(f"Failed to use LLM pipeline for {symbol} with provider {provider}: {str(e)}. Falling back to rules engine.")
         return run_heuristics(metrics)
 
-def evaluate_ticker(metrics: dict) -> dict:
+def evaluate_ticker(metrics: dict, *args, **kwargs) -> dict:
     """
     Main orchestrator for evaluating a single ticker.
     Checks environment for FEATHERLESS_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY.
     """
+    if isinstance(metrics, str) and len(args) > 0 and isinstance(args[-1], dict):
+        metrics = args[-1]
+        
     heuristics_result = run_heuristics(metrics)
+    fallback_score = metrics.get("bullish_score", heuristics_result.get("bullish_score", 50))
     
     featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -297,26 +301,27 @@ def evaluate_ticker(metrics: dict) -> dict:
     
     if featherless_key and not featherless_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, featherless_key, provider="featherless")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif gemini_key and not gemini_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, gemini_key, provider="gemini")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif openai_key and not openai_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, openai_key, provider="openai")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif anthropic_key and not anthropic_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, anthropic_key, provider="anthropic")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif deepseek_key and not deepseek_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, deepseek_key, provider="deepseek")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     else:
         return heuristics_result
+
 
 def chat_with_ai_copilot(user_query: str, chat_history: list = None, model_name: str = None, context_ticker: str = "AAPL") -> str:
     """
