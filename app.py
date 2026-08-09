@@ -1274,26 +1274,8 @@ def get_rss_news(symbol: str = "^GSPC") -> list:
         except Exception:
             pass
 
-    # Source 3: Firecrawl Scraper (if key active)
-    fc_key = os.environ.get("FIRECRAWL_API_KEY")
-    if fc_key and fc_key.strip():
-        fc_news = fetch_firecrawl_news(symbol if symbol != "^GSPC" else "stock market", fc_key.strip())
-        for fn in fc_news:
-            t = fn.get("headline", "")
-            if not t or t.lower() in seen_titles: continue
-            seen_titles.add(t.lower())
-            parsed.insert(0, {
-                "title": t, "headline": t,
-                "link": fn.get("url", ""), "url": fn.get("url", ""),
-                "pub_date": "Live Firecrawl", "time": datetime.now(),
-                "source": fn.get("source", "Firecrawl Wire"),
-                "summary_snippet": fn.get("summary", "")[:250],
-                "summary": fn.get("summary", "")[:250],
-                "sentiment_score": 0.2, "badge": "BULLISH", "class": "sent-bullish",
-                "image_url": fn.get("image_url", "")
-            })
-
     return parsed
+
 
 
 import base64
@@ -2137,7 +2119,8 @@ elif current_tab == "NEWS":
 
     col_left, col_right = st.columns([2.6, 1.4])
     
-    with st.spinner("Aggregating multi-channel news wires (Yahoo, CNBC, MarketWatch, Finnhub, Firecrawl)..."):
+    with st.spinner("Aggregating multi-channel news wires (Yahoo, CNBC, MarketWatch, Finnhub)..."):
+
         raw_news = get_rss_news("^GSPC")
 
     # Filter news based on search query & sentiment filter
