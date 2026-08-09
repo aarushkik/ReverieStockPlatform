@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from predictive_model import train_predictive_model
+
 
 def calculate_price_metrics(df: pd.DataFrame) -> dict:
     """
@@ -198,10 +200,12 @@ def run_analysis(symbol_or_data, data: dict = None) -> dict:
     df = data["prices"]
     news = data["news"]
     fundamentals = data.get("fundamentals", {})
-    
+
     price_metrics = calculate_price_metrics(df)
     vol_metrics = calculate_volatility(df)
     sent_metrics = analyze_sentiment(news)
+    ml_res = train_predictive_model(symbol, df)
+
     
     return {
         "symbol": symbol,
@@ -227,5 +231,13 @@ def run_analysis(symbol_or_data, data: dict = None) -> dict:
         "sentiment_label": sent_metrics["label"],
         "sentiment_desc": sent_metrics["description"],
         "news": news,
-        "fundamentals": fundamentals
+        "fundamentals": fundamentals,
+        "ml_model_result": ml_res,
+        "ml_prediction": ml_res.get("prediction", "Neutral"),
+        "ml_bullish_prob": ml_res.get("bullish_probability", 50.0),
+        "ml_confidence_pct": ml_res.get("confidence_pct", 60),
+        "ml_accuracy_pct": ml_res.get("backtest_accuracy_pct", 60.0),
+        "ml_feature_importances": ml_res.get("feature_importances", []),
+        "ml_forecast": ml_res.get("forecast", [])
     }
+

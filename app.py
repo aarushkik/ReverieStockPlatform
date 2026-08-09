@@ -2060,7 +2060,86 @@ def make_sparkline(series, color="#58A6FF"):
     )
     return fig
 
+def make_ml_prediction_chart(forecast_data: list, current_price: float, symbol: str):
+    df_fc = pd.DataFrame(forecast_data)
+    fig = go.Figure()
+
+    if not df_fc.empty and "date" in df_fc.columns and "predicted_close" in df_fc.columns:
+        dates = df_fc["date"]
+        preds = df_fc["predicted_close"]
+        upper = df_fc.get("upper_bound", preds * 1.05)
+        lower = df_fc.get("lower_bound", preds * 0.95)
+
+        # 95% Confidence interval shaded region
+        fig.add_trace(go.Scatter(
+            x=list(dates) + list(dates)[::-1],
+            y=list(upper) + list(lower)[::-1],
+            fill='toself',
+            fillcolor='rgba(88, 166, 255, 0.12)',
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="none",
+            name="95% Confidence Interval"
+        ))
+
+        # Predicted Close Trajectory
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=preds,
+            mode='lines+markers',
+            name='ML Predicted Price',
+            line=dict(color='#00E676', width=2.5),
+            marker=dict(size=4, color='#00E676')
+        ))
+
+    fig.update_layout(
+        title=dict(text=f"30-Day Predictive Trajectory Forecast ({symbol})", font=dict(size=13, color='#FFFFFF', family='Inter')),
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=320,
+        margin=dict(l=10, r=10, t=35, b=10),
+        xaxis=dict(showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6')),
+        yaxis=dict(showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6'), tickprefix="$"),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10, color='#8A94A6'))
+    )
+    return fig
+
+
+def make_feature_importance_chart(feature_importances: list):
+    df_feat = pd.DataFrame(feature_importances)
+    fig = go.Figure()
+
+    if not df_feat.empty and "feature" in df_feat.columns and "importance" in df_feat.columns:
+        df_sorted = df_feat.sort_values("importance", ascending=True)
+        fig.add_trace(go.Bar(
+            x=df_sorted["importance"],
+            y=df_sorted["feature"],
+            orientation='h',
+            marker=dict(
+                color=df_sorted["importance"],
+                colorscale=[[0, '#1E2433'], [1, '#00E676']],
+                line=dict(color='#2A3142', width=1)
+            ),
+            hovertemplate="Feature: %{y}<br>Weight: %{x:.1f}%<extra></extra>"
+        ))
+
+    fig.update_layout(
+        title=dict(text="Top Machine Learning Predictor Features", font=dict(size=13, color='#FFFFFF', family='Inter')),
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=320,
+        margin=dict(l=10, r=10, t=35, b=10),
+        xaxis=dict(title="Feature Importance (%)", showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6')),
+        yaxis=dict(showgrid=False, tickfont=dict(size=10, color='#C9D1D9')),
+        showlegend=False
+    )
+    return fig
+
+
 def format_volume(vol):
+
     if vol >= 1e6:
         return f"{vol/1e6:.1f}M"
     elif vol >= 1e3:
@@ -2962,7 +3041,63 @@ elif current_tab == "RESEARCH":
         st.plotly_chart(fig_advanced, use_container_width=True, config={"displayModeBar": True, "scrollZoom": True})
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # ──────────────────────────────────────────────────────────────────────
+        # PREDICTIVE AI MODEL FORECAST & ML DIAGNOSTICS
+        # ──────────────────────────────────────────────────────────────────────
+        st.subheader("Predictive AI Forecast (30-Day Trajectory & Feature Importance)")
+        forecast_data = res.get("ml_forecast") or []
+        feat_imps = res.get("ml_feature_importances") or []
+
+        ml_col1, ml_col2 = st.columns([1.8, 1.2])
+        with ml_col1:
+            if forecast_data:
+                fig_ml_forecast = make_ml_prediction_chart(forecast_data, cl, sym)
+                st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
+                st.plotly_chart(fig_ml_forecast, use_container_width=True, config={"displayModeBar": False})
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("Insufficient historical bars to render predictive trajectory.")
+
+        with ml_col2:
+            if feat_imps:
+                fig_feat_imp = make_feature_importance_chart(feat_imps)
+                st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
+                st.plotly_chart(fig_feat_imp, use_container_width=True, config={"displayModeBar": False})
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        # ML Performance Metrics Cards
+        ml_prob = res.get("ml_bullish_prob", 50.0)
+        ml_acc = res.get("ml_accuracy_pct", 60.0)
+        ml_pred = res.get("ml_prediction", "Neutral")
+        ml_conf = res.get("ml_confidence_pct", 60)
+
+        p_color = "#00C805" if ml_pred == "Bullish" else ("#FF3B30" if ml_pred == "Bearish" else "#8A94A6")
+
+        st.markdown(f"""
+        <div class="fintech-card" style="padding:12px !important; margin-bottom:14px !important;">
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; text-align:center;">
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">ML Target Direction</div>
+                    <div style="font-size:18px; font-weight:800; color:{p_color}; margin-top:3px;">{ml_pred}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Bullish Gain Probability</div>
+                    <div style="font-size:18px; font-weight:800; color:#FFFFFF; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_prob:.1f}%</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Backtest Hit Rate (Acc)</div>
+                    <div style="font-size:18px; font-weight:800; color:#58A6FF; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_acc:.1f}%</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Model Confidence</div>
+                    <div style="font-size:18px; font-weight:800; color:#00E676; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_conf}%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.subheader("Industry Peer Comparison")
+
         # Select peers
         peer_mapping = {
             "AAPL": ["MSFT", "GOOGL", "META"],
