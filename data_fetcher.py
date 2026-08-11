@@ -14,12 +14,13 @@ def load_env_file():
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:
                         key, val = line.split("=", 1)
-                        if key.strip() not in os.environ:
+                        if key.strip() and val.strip():
                             os.environ[key.strip()] = val.strip()
         except Exception:
             pass
 
 load_env_file()
+
 
 # Fallback financial stock images for cards without an explicit thumbnail
 FALLBACK_NEWS_IMAGES = [

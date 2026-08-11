@@ -11,10 +11,13 @@ import xml.etree.ElementTree as ET
 import urllib.request
 
 # Import backend engine
-from data_fetcher import get_stock_data
+from data_fetcher import get_stock_data, load_env_file
 from analyzer import run_analysis, analyze_sentiment
 from agent_logic import evaluate_ticker, chat_with_ai_copilot
 from dashboard import generate_markdown_report
+
+load_env_file()
+
 
 # Custom React component for Order Entry using CCv2
 _REACT_ORDER_DESK = st.components.v2.component(
