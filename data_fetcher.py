@@ -361,10 +361,12 @@ def fetch_finnhub_data(symbol: str, api_key: str) -> dict:
 
 def get_stock_data(symbol: str) -> dict:
     """
-    Orchestrator that fetches data using Finnhub or yfinance, and enriches fundamentals.
+    Orchestrator that fetches data using Finnhub or yfinance, enriches fundamentals,
+    and merges live scraped Firecrawl web news if FIRECRAWL_API_KEY is active.
     """
     symbol = symbol.strip().upper()
     finnhub_key = os.environ.get("FINNHUB_API_KEY")
+    firecrawl_key = os.environ.get("FIRECRAWL_API_KEY")
     
     main_res = None
     if finnhub_key and not finnhub_key.startswith("YOUR_"):
@@ -383,5 +385,15 @@ def get_stock_data(symbol: str) -> dict:
             if not main_res["news"]:
                 main_res["news"] = yf_fallback.get("news", [])
 
+    # If Firecrawl API key is present, fetch live web news & article media
+    if firecrawl_key and firecrawl_key.strip() and not firecrawl_key.startswith("YOUR_"):
+        try:
+            firecrawl_news = fetch_firecrawl_news(symbol, firecrawl_key.strip())
+            if firecrawl_news:
+                main_res["news"] = firecrawl_news + main_res.get("news", [])
+        except Exception:
+            pass
+
     return main_res
+
 
