@@ -1844,6 +1844,20 @@ def render_rich_news_card(n, idx) -> str:
     img_path = img_paths[idx % 3]
     img_b64 = get_image_base64(img_path)
     
+    # Clean source name to remove Firecrawl / API mentions
+    raw_src = str(n.get('source', '') or 'Market Wire').strip()
+    if any(k in raw_src.lower() for k in ['firecrawl', 'rss', 'api', 'scraper', 'yahoo']):
+        src_label = "MARKET WIRE"
+    else:
+        src_label = raw_src.upper()
+
+    # Clean date tag
+    raw_date = str(n.get('pub_date', '') or n.get('date', '')).strip()
+    if 'firecrawl' in raw_date.lower():
+        date_label = "Live Wire"
+    else:
+        date_label = raw_date
+    
     # Split description into nice bullets/sentences for structured captions
     desc = n.get('summary_snippet', '') or ''
     sentences = [s.strip() for s in desc.split('.') if s.strip()]
@@ -1858,11 +1872,12 @@ def render_rich_news_card(n, idx) -> str:
     header_html = f"""
     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
         <img src="https://www.google.com/s2/favicons?sz=64&domain={dom}" style="width: 18px; height: 18px; border-radius: 3px;" />
-        <span style="font-size: 11px; font-weight: 700; color: #FFFFFF; text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">{n.get('source', 'NEWS')}</span>
-        <span style="font-size: 11px; color: #8A94A6;">&middot; {n.get('pub_date', '')}</span>
+        <span style="font-size: 11px; font-weight: 700; color: #FFFFFF; text-transform: uppercase; font-family: 'JetBrains Mono', monospace;">{src_label}</span>
+        <span style="font-size: 11px; color: #8A94A6;">&middot; {date_label}</span>
         {badge_html}
     </div>
     """
+
     
     title_html = f"""
     <div style="margin-bottom: 10px;">
@@ -2674,8 +2689,13 @@ elif current_tab == "NEWS":
             st.plotly_chart(fig_gauge, use_container_width=True, config={"displayModeBar": False})
             st.markdown("</div>", unsafe_allow_html=True)
             
-        st.subheader("Trending Watchlist")
-        trending_tickers = ["TSLA", "AAPL", "MSFT", "NVDA", "AMZN", "NFLX", "GOOGL", "META", "JPM", "V"]
+        st.subheader("Trending Watchlist & Market Leaders")
+        trending_tickers = [
+            "NVDA", "TSLA", "AAPL", "PLTR", "MSFT", "AMD", "AMZN", "META",
+            "GOOGL", "NFLX", "JPM", "V", "AVGO", "SMCI", "ARM", "COIN",
+            "BAC", "LLY", "UNH", "DIS"
+        ]
+
         with st.spinner("Syncing watchlist..."):
             tr_prices = get_live_prices_batch(trending_tickers)
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
