@@ -1723,8 +1723,36 @@ def get_ticker_info(symbol: str) -> dict:
 
 @st.cache_data(ttl=600)
 def get_rss_news(symbol: str) -> list:
-    """Fetch news headlines from Yahoo Finance RSS feed and calculate phrase-based sentiment."""
+    """Fetch news headlines from Yahoo Finance RSS feed and Firecrawl live scraper."""
     symbol = symbol.strip().upper()
+    parsed = []
+    seen_titles = set()
+    
+    # Source 1: Firecrawl Live Web Scraper (if active)
+    fc_key = os.environ.get("FIRECRAWL_API_KEY")
+    if fc_key and fc_key.strip() and not fc_key.startswith("YOUR_"):
+        try:
+            from data_fetcher import fetch_firecrawl_news
+            fc_news = fetch_firecrawl_news(symbol if symbol != "^GSPC" else "stock market", fc_key.strip())
+            for fn in fc_news:
+                t = fn.get("headline", "")
+                if not t or t.lower() in seen_titles: continue
+                seen_titles.add(t.lower())
+                parsed.append({
+                    "title": t,
+                    "link": fn.get("url", ""),
+                    "pub_date": "Live Firecrawl",
+                    "date": "Live Firecrawl",
+                    "source": fn.get("source", "Firecrawl Wire"),
+                    "summary_snippet": fn.get("summary", "")[:250],
+                    "sentiment_score": 0.25,
+                    "badge": "BULLISH",
+                    "class": "sent-bullish"
+                })
+        except Exception:
+            pass
+
+    # Source 2: Yahoo Finance RSS feed
     url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -1732,21 +1760,21 @@ def get_rss_news(symbol: str) -> list:
             xml_data = resp.read()
         root = ET.fromstring(xml_data)
         items = root.findall(".//item")
-        parsed = []
         
         pos_phrases = ["beating expectations", "surpassing guidance", "strategic breakthrough", "increased allocation", "upgrade", "growth acceleration", "support holds"]
         neg_phrases = ["regulatory probe", "supply constraints", "device costs rising", "revenue miss", "guidance cut", "downgrade", "resistance ceiling holds"]
         
         for item in items[:10]:
             title = (item.findtext("title") or "").strip()
+            if not title or title.lower() in seen_titles:
+                continue
+            seen_titles.add(title.lower())
+
             link = (item.findtext("link") or "").strip()
             pub_date = (item.findtext("pubDate") or "").strip()
             source = (item.findtext("source") or "Yahoo Finance").strip()
             summary_snippet = (item.findtext("description") or "").strip()
             
-            if not title:
-                continue
-                
             combined_text = (title + " " + summary_snippet).lower()
             pos_count = sum(1 for phrase in pos_phrases if phrase in combined_text)
             neg_count = sum(1 for phrase in neg_phrases if phrase in combined_text)
@@ -1765,7 +1793,7 @@ def get_rss_news(symbol: str) -> list:
                 "title": title,
                 "link": link,
                 "pub_date": pub_date,
-                "date": pub_date,  # compatibility key
+                "date": pub_date,
                 "source": source,
                 "summary_snippet": summary_snippet,
                 "sentiment_score": sa,
@@ -1775,7 +1803,8 @@ def get_rss_news(symbol: str) -> list:
         return parsed
     except Exception:
         pass
-    return []
+    return parsed
+
 
 import base64
 
