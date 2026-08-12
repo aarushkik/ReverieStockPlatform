@@ -420,6 +420,16 @@ Provide clear, data-driven, and insightful answers. Highlight key price levels, 
             except Exception as e:
                 logger.warning(f"Featherless model {target_m} failed: {e}")
 
+    # Momen BaaS & AI Agent Pipeline Integration (Utilizes Momen Platform Credits)
+    try:
+        from momen_integration import is_momen_configured, query_momen_ai_agent
+        if is_momen_configured():
+            momen_res = query_momen_ai_agent(user_query, context_ticker)
+            if momen_res.get("success") and momen_res.get("response"):
+                return str(momen_res["response"]).strip()
+    except Exception as e:
+        logger.warning(f"Momen AI call failed: {e}")
+
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key and not gemini_key.startswith("YOUR_"):
         try:
@@ -435,6 +445,7 @@ Provide clear, data-driven, and insightful answers. Highlight key price levels, 
 
     # Human-like intelligent fallback
     return f"I'm analyzing **{context_ticker}** right now! Based on current market indicators, {context_ticker} is consolidating near key support levels. Keep an eye on SMA 20 vs SMA 60 moving average crossovers and volume momentum before taking position entries."
+
 
 def calculate_black_scholes_greeks(S: float, K: float, T: float, r: float = 0.05, sigma: float = 0.30, option_type: str = "call") -> dict:
     """
