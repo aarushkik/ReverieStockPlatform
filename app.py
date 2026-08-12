@@ -2476,7 +2476,7 @@ if current_tab == "MARKET_HOME":
 
     with col1:
         # 1. Trending Stocks
-        st.subheader("🔥 Trending Stocks")
+        st.subheader("Trending Stocks")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
         if scanners.get("trending"):
@@ -2487,7 +2487,7 @@ if current_tab == "MARKET_HOME":
         st.markdown("</div>", unsafe_allow_html=True)
 
         # 2. Day Gainers
-        st.subheader("📈 Day Gainers")
+        st.subheader("Day Gainers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
         if scanners.get("gainers"):
@@ -2510,7 +2510,7 @@ if current_tab == "MARKET_HOME":
 
     with col3:
         # 3. Day Losers
-        st.subheader("📉 Day Losers")
+        st.subheader("Day Losers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
         if scanners.get("losers"):
@@ -2521,7 +2521,7 @@ if current_tab == "MARKET_HOME":
         st.markdown("</div>", unsafe_allow_html=True)
 
         # 4. 52-Week Gainers
-        st.subheader("🏆 52-Week Gainers")
+        st.subheader("52-Week Gainers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
         if scanners.get("new_hi"):
@@ -2532,7 +2532,7 @@ if current_tab == "MARKET_HOME":
         st.markdown("</div>", unsafe_allow_html=True)
 
         # 5. 52-Week Losers
-        st.subheader("⚠️ 52-Week Losers")
+        st.subheader("52-Week Losers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
         if scanners.get("new_lo"):
@@ -2541,6 +2541,7 @@ if current_tab == "MARKET_HOME":
         else:
             st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No 52W Lows</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 
 
     # ── BOTTOM ROW WIDGETS (COMMODITIES, CRYPTO, FOREX & INSIDERS) ──
