@@ -1517,13 +1517,32 @@ def get_market_scanners() -> dict:
             })
 
     rdf = pd.DataFrame(records)
-    gainers = rdf.sort_values("change", ascending=False).head(10).to_dict("records")
-    losers = rdf.sort_values("change", ascending=True).head(10).to_dict("records")
-    # High Volume Leaders: sort by total volume descending
-    unusual = rdf.sort_values("volume", ascending=False).head(10).to_dict("records")
-    new_hi = rdf[rdf["is_hi"]].to_dict("records")
-    new_lo = rdf[rdf["is_lo"]].to_dict("records")
-    return {"gainers": gainers, "losers": losers, "unusual_vol": unusual, "new_hi": new_hi, "new_lo": new_lo}
+    gainers = rdf.sort_values("change", ascending=False).head(8).to_dict("records")
+    losers = rdf.sort_values("change", ascending=True).head(8).to_dict("records")
+    trending = rdf.sort_values("vol_ratio", ascending=False).head(8).to_dict("records")
+    unusual = rdf.sort_values("volume", ascending=False).head(8).to_dict("records")
+    
+    # 52-Week Highs / Gainers
+    hi_df = rdf[rdf["is_hi"]]
+    if len(hi_df) < 4:
+        hi_df = rdf.sort_values("change", ascending=False).head(8)
+    new_hi = hi_df.head(8).to_dict("records")
+
+    # 52-Week Lows / Losers
+    lo_df = rdf[rdf["is_lo"]]
+    if len(lo_df) < 4:
+        lo_df = rdf.sort_values("change", ascending=True).head(8)
+    new_lo = lo_df.head(8).to_dict("records")
+
+    return {
+        "gainers": gainers,
+        "losers": losers,
+        "trending": trending,
+        "unusual_vol": unusual,
+        "new_hi": new_hi,
+        "new_lo": new_lo
+    }
+
 
 @st.cache_data(ttl=300)
 def get_futures_commodities() -> list:
@@ -2450,27 +2469,30 @@ if current_tab == "MARKET_HOME":
                 st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
 # ── 3-COLUMN FINVIZ MATRIX GRID ──
-    col1, col2, col3 = st.columns([1, 1.4, 1])
+    col1, col2, col3 = st.columns([1.1, 1.35, 1.1], gap="medium")
+
+    with st.spinner("Scanning market momentum..."):
+        scanners = get_market_scanners()
 
     with col1:
-        st.subheader("Top Gainers")
+        # 1. Trending Stocks
+        st.subheader("🔥 Trending Stocks")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        with st.spinner("Scanning gainers..."):
-            scanners = get_market_scanners()
-        if scanners["gainers"]:
-            for idx, r in enumerate(scanners["gainers"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "GAINER", "pill-pos", row_index=idx), unsafe_allow_html=True)
+        if scanners.get("trending"):
+            for idx, r in enumerate(scanners["trending"][:5]):
+                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "TRENDING", "pill-pos" if r["change"]>=0 else "pill-neg", row_index=idx), unsafe_allow_html=True)
         else:
             st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No data</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.subheader("Top Losers")
+        # 2. Day Gainers
+        st.subheader("📈 Day Gainers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["losers"]:
-            for idx, r in enumerate(scanners["losers"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "LOSER", "pill-neg", row_index=idx), unsafe_allow_html=True)
+        if scanners.get("gainers"):
+            for idx, r in enumerate(scanners["gainers"][:5]):
+                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "GAINER", "pill-pos", row_index=idx), unsafe_allow_html=True)
         else:
             st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No data</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
@@ -2487,30 +2509,39 @@ if current_tab == "MARKET_HOME":
             st.markdown("<div class='fintech-card'><div style='color:#888888; font-size:11px;'>No heatmap data</div></div>", unsafe_allow_html=True)
 
     with col3:
-        st.subheader("Unusual Volume")
+        # 3. Day Losers
+        st.subheader("📉 Day Losers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["unusual_vol"]:
-            for idx, r in enumerate(scanners["unusual_vol"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "VOL SPIKE", "pill-neut", row_index=idx), unsafe_allow_html=True)
+        if scanners.get("losers"):
+            for idx, r in enumerate(scanners["losers"][:4]):
+                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "LOSER", "pill-neg", row_index=idx), unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No anomaly detected</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No data</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.subheader("New 52W Highs / Lows")
+        # 4. 52-Week Gainers
+        st.subheader("🏆 52-Week Gainers")
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["new_hi"] or scanners["new_lo"]:
-            row_idx = 0
-            for r in scanners["new_hi"][:3]:
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W HIGH", "pill-pos", row_index=row_idx), unsafe_allow_html=True)
-                row_idx += 1
-            for r in scanners["new_lo"][:3]:
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W LOW", "pill-neg", row_index=row_idx), unsafe_allow_html=True)
-                row_idx += 1
+        if scanners.get("new_hi"):
+            for idx, r in enumerate(scanners["new_hi"][:4]):
+                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W HIGH", "pill-pos", row_index=idx), unsafe_allow_html=True)
         else:
-            st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No breakout events</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No 52W Highs</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
+        # 5. 52-Week Losers
+        st.subheader("⚠️ 52-Week Losers")
+        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
+        st.markdown(render_scanner_header(), unsafe_allow_html=True)
+        if scanners.get("new_lo"):
+            for idx, r in enumerate(scanners["new_lo"][:4]):
+                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W LOW", "pill-neg", row_index=idx), unsafe_allow_html=True)
+        else:
+            st.markdown("<div style='color:#888888; font-size:11px; padding: 6px;'>No 52W Lows</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
 
     # ── BOTTOM ROW WIDGETS (COMMODITIES, CRYPTO, FOREX & INSIDERS) ──
     row_futures, row_insiders = st.columns([1.5, 2.5], gap="medium")
