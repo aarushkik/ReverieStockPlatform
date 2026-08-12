@@ -1206,6 +1206,26 @@ st.html(
     """
 )
 
+# ── BACKGROUND SENTINEL WATCHLIST & VOLATILITY ALERTS ──
+try:
+    from momen_integration import check_watchlist_sentinel_alerts
+    _sentinel_alerts = check_watchlist_sentinel_alerts(st.session_state.get("watchlist", ["NVDA", "TSLA", "PLTR"]))
+    if _sentinel_alerts:
+        _alt = _sentinel_alerts[0]
+        _alt_color = "#FF3B30" if _alt.get("change_pct", 0) < 0 else "#00C805"
+        st.markdown(f"""
+        <div style="background: linear-gradient(90deg, rgba(255,59,48,0.12), rgba(0,200,5,0.12)); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 8px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="background: {_alt_color}; color: #000; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;">SENTINEL ALERT</span>
+                <span style="font-size: 12px; color: #FFFFFF; font-weight: 600;">{_alt.get('event')}</span>
+            </div>
+            <span style="font-size: 11px; color: #8A94A6; font-family: 'JetBrains Mono', monospace;">{_alt.get('timestamp', 'Live')}</span>
+        </div>
+        """, unsafe_allow_html=True)
+except Exception:
+    pass
+
+
 # ==============================================================================
 
 # ==============================================================================
