@@ -277,7 +277,17 @@ def score_login(attempt: LoginAttempt) -> RiskAssessment:
 
 
 def _bot_reasons(f: Dict[str, float], sig: BotSignals) -> List[str]:
+    """Plain-language explanations for an automation score.
+
+    These cover the soft, model-driven signals as well as the hard rules. An
+    earlier version only explained the hard rules, which meant a submission the
+    model scored at 0.89 could be blocked with an empty reason list - no
+    explanation for the user, and nothing in the audit log for whoever picks up
+    the support ticket. Anything the gate acts on has to be sayable.
+    """
     reasons: List[str] = []
+
+    # --- hard signals -----------------------------------------------------
     if f["honeypot_filled"]:
         reasons.append("Hidden form field was filled in")
     if f["webdriver_flag"]:
@@ -286,16 +296,40 @@ def _bot_reasons(f: Dict[str, float], sig: BotSignals) -> List[str]:
         reasons.append("Client identifies as a headless browser or HTTP library")
     if f["no_interaction"]:
         reasons.append("Form submitted with no pointer movement and no typing")
-    if f["pointer_samples"] > 0 and f["pointer_straightness"] > 0.95:
-        reasons.append("Pointer moved in a perfectly straight line")
-    if f["keystroke_count"] >= 3 and f["keystroke_iki_cv"] < 0.08:
-        reasons.append("Typing rhythm is unnaturally regular")
+
+    # --- behavioural signals ---------------------------------------------
+    if f["pointer_samples"] > 0:
+        if f["pointer_straightness"] > 0.95:
+            reasons.append("Pointer moved in a perfectly straight line")
+        elif f["pointer_straightness"] > 0.7:
+            reasons.append("Pointer travelled an unusually direct path to the form")
+        # Turn-angle variance. Hand movement is jittery; interpolated cursor
+        # paths - including the "human-like mouse" helpers shipped with
+        # automation frameworks - are far smoother than a real hand.
+        if f["pointer_entropy"] < 0.35:
+            reasons.append("Pointer movement was unnaturally smooth")
+        elif f["pointer_entropy"] < 0.75:
+            reasons.append("Pointer movement was smoother than typical hand motion")
+
+    if f["keystroke_count"] >= 3:
+        if f["keystroke_iki_cv"] < 0.08:
+            reasons.append("Typing rhythm is unnaturally regular")
+        elif f["keystroke_iki_cv"] < 0.2:
+            reasons.append("Typing rhythm is more regular than typical")
+
     if sig.fill_time_ms and sig.fill_time_ms < 400 and f["keystroke_count"] > 0:
         reasons.append(f"Form completed in {sig.fill_time_ms:.0f} ms")
+    elif sig.fill_time_ms and sig.fill_time_ms < 1500 and f["keystroke_count"] > 4:
+        reasons.append("Form completed faster than typical")
+
+    # --- environment signals ---------------------------------------------
     if f["screen_plausible"] < 0.5:
         reasons.append("Reported screen and viewport dimensions are inconsistent")
     if f["touch_ua_agreement"] < 0.5:
         reasons.append("Touch capability disagrees with the reported platform")
+    if f["plugin_count"] == 0 and f["language_count"] <= 1:
+        reasons.append("Browser reports no plugins and a single language")
+
     return reasons
 
 
@@ -314,6 +348,14 @@ def score_bot(sig: BotSignals) -> BotAssessment:
 
     assessment.reasons = _bot_reasons(feats, sig)
     assessment.is_bot = assessment.score >= BOT_THRESHOLD
+
+    # Backstop: never act on a score we cannot articulate at all. If the model
+    # is confident but every named heuristic stayed quiet, say that plainly
+    # rather than logging a block with an empty reason list.
+    if assessment.is_bot and not assessment.reasons:
+        assessment.reasons.append(
+            "Overall interaction pattern matches automated tooling"
+        )
 
     # A honeypot is a hidden field with no label and no tab stop. No human
     # fills it; only something parsing the DOM does. This is proof, not
