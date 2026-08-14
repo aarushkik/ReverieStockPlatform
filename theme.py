@@ -1132,6 +1132,23 @@ def build_css(theme: Theme) -> str:
         font-weight: 650;
         color: var(--rv-accent);
     }}
+
+    /* Symbols anywhere in the app that route through the click bus. Hover is
+       styling and lives here rather than in duplicated inline onmouseover
+       handlers on every table cell. */
+    .rv-ticker-link {{
+        color: var(--rv-accent);
+        font-weight: 650;
+        cursor: pointer;
+        text-decoration: none;
+        transition: color var(--rv-dur-fast) linear;
+    }}
+    .rv-ticker-link:hover {{ color: var(--rv-text); }}
+    .rv-ticker-link:focus-visible {{
+        outline: 2px solid var(--rv-accent);
+        outline-offset: 2px;
+        border-radius: 2px;
+    }}
     .rv-scan-head {{
         cursor: default;
         height: auto;

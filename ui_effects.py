@@ -576,12 +576,31 @@ _RUNTIME_JS = r"""
   // from Streamlit's build-time config and therefore cannot follow a
   // switchable palette. Delegating clicks to a component trigger keeps both:
   // themed markup and an in-place rerun.
-  doc.addEventListener('click', function (e) {
-    var el = e.target && e.target.closest && e.target.closest('[data-rv-ticker]');
-    if (!el) return;
+  function emitTicker(el, e) {
     e.preventDefault();
     var symbol = el.getAttribute('data-rv-ticker');
-    if (symbol && W.__rvEmitTicker) W.__rvEmitTicker(symbol);
+    if (!symbol || !W.__rvEmitTicker) return;
+    W.__rvEmitTicker({
+      symbol: symbol,
+      // Optional destination; the caller decides where a symbol leads.
+      dest: el.getAttribute('data-rv-dest') || 'RESEARCH',
+      // Nonce so two clicks on the same symbol are distinct trigger values
+      // and the second one is not swallowed as a no-op.
+      n: Date.now()
+    });
+  }
+
+  doc.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest && e.target.closest('[data-rv-ticker]');
+    if (el) emitTicker(el, e);
+  });
+
+  // Rows are role="button" with a tabindex, so they must respond to the
+  // keyboard the way a button does.
+  doc.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target && e.target.closest && e.target.closest('[data-rv-ticker]');
+    if (el) emitTicker(el, e);
   });
 
   // Streamlit mutates the tree well after this script runs, so watch for it.
