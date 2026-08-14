@@ -45,9 +45,15 @@ from theme import Theme, rgba
 # ==============================================================================
 
 
-def effects_css(theme: Theme) -> str:
-    """Stylesheet for the purely declarative effects."""
-    accent = theme.accent_raw
+def effects_css(theme: Optional[Theme] = None) -> str:
+    """Stylesheet for the purely declarative effects.
+
+    Entirely token-driven: every colour resolves through a CSS variable that
+    theme.py emits, so this string is identical for every theme. That is what
+    allows it to be registered once as static component CSS rather than being
+    re-injected per run. The *theme* argument is accepted and ignored so
+    callers need not care.
+    """
     return f"""<style>
     /* ---------------------------------------------------------------
        SpotlightCard - React Bits Components/SpotlightCard
@@ -59,7 +65,7 @@ def effects_css(theme: Theme) -> str:
         overflow: hidden;
         --rv-mx: 50%;
         --rv-my: 50%;
-        --rv-spot: {rgba(accent, 0.16)};
+        --rv-spot: var(--rv-spotlight, rgba(0, 214, 143, 0.16));
     }}
     .rv-spotlight::before {{
         content: '';
@@ -122,7 +128,13 @@ def effects_css(theme: Theme) -> str:
 
     /* ---------------------------------------------------------------
        StarBorder - React Bits Animations/StarBorder
-       A conic gradient rotating behind the element, masked to the border.
+       Upstream rotates a conic gradient behind the element. That needs an
+       @property-registered <angle> to be animatable, and Streamlit sanitises
+       any <style> block containing an @property at-rule - it drops the whole
+       stylesheet, not just the rule. Rotating the masked pseudo-element with
+       transform instead would rotate its mask along with it and break the
+       border shape, so this uses a linear sheen swept by background-position,
+       which animates natively and needs no registered property.
        --------------------------------------------------------------- */
     .rv-star-border {{
         position: relative;
@@ -135,27 +147,23 @@ def effects_css(theme: Theme) -> str:
         inset: -1px;
         border-radius: inherit;
         padding: 1px;
-        background: conic-gradient(
-            from var(--rv-angle, 0deg),
-            transparent 0deg,
-            var(--rv-accent-fill) 40deg,
-            transparent 110deg,
-            transparent 360deg);
+        background: linear-gradient(
+            100deg,
+            transparent 20%,
+            var(--rv-accent-fill) 45%,
+            var(--rv-info) 55%,
+            transparent 80%);
+        background-size: 300% 100%;
         -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
         -webkit-mask-composite: xor;
         mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
         mask-composite: exclude;
-        animation: rv-rotate-angle calc(4s / max(var(--rv-motion), 0.01)) linear infinite;
+        animation: rv-border-sweep calc(4s / max(var(--rv-motion), 0.01)) linear infinite;
         pointer-events: none;
-        z-index: -1;
     }}
-    @property --rv-angle {{
-        syntax: '<angle>';
-        initial-value: 0deg;
-        inherits: false;
-    }}
-    @keyframes rv-rotate-angle {{
-        to {{ --rv-angle: 360deg; }}
+    @keyframes rv-border-sweep {{
+        0%   {{ background-position: 300% 0; }}
+        100% {{ background-position: -300% 0; }}
     }}
 
     /* ---------------------------------------------------------------
@@ -579,6 +587,88 @@ _RUNTIME_JS = r"""
 def runtime(theme: Theme) -> str:
     """The script tag that installs the interactive-effect runtime."""
     return f"<script>{_RUNTIME_JS}</script>"
+
+
+# ==============================================================================
+# MOUNTING
+# ==============================================================================
+#
+# Effects have to be delivered through st.components.v2, not st.html.
+#
+# st.html sanitises with DOMPurify, which strips <script> unless
+# unsafe_allow_javascript is set, and - less obviously - discards an entire
+# <style> block if it contains an at-rule it does not recognise. That silently
+# removed the whole effects stylesheet, leaving the aurora and spotlight
+# elements in the DOM with no styling at all and no error anywhere.
+#
+# Component css/js are explicitly documented as trusted and unsanitised, which
+# is what these need: the CSS uses modern at-rules and the runtime is real
+# script. Everything is authored in this repository; no user input reaches it.
+
+_chrome_component = None
+
+
+def _get_chrome_component():
+    """Register the chrome component once.
+
+    Streamlit warns and keeps only the last registration if a component name is
+    declared twice, so this must not be re-registered per rerun.
+    """
+    global _chrome_component
+    if _chrome_component is None:
+        import streamlit as st
+
+        # Strip the <style> wrapper: the component takes bare CSS.
+        css = effects_css().replace("<style>", "").replace("</style>", "")
+
+        _chrome_component = st.components.v2.component(
+            "reverie_chrome",
+            html='<div class="rv-chrome-anchor" aria-hidden="true"></div>',
+            css=css,
+            js=f"""
+            export default function (component) {{
+                {_RUNTIME_JS}
+            }}
+            """,
+            # The effects must style the whole app, not just this component's
+            # subtree, so style isolation is off by design.
+            isolate_styles=False,
+        )
+    return _chrome_component
+
+
+def mount(theme: Theme) -> None:
+    """Install the effects stylesheet and interactive runtime for this page.
+
+    Call once per run, after the theme stylesheet.
+    """
+    _get_chrome_component()(data={})
+
+
+_backdrop_component = None
+
+
+def mount_backdrop(theme: Theme, particles: bool = True, grain: bool = True) -> None:
+    """Install the full-viewport aurora backdrop for the sign-in screen."""
+    global _backdrop_component
+    import streamlit as st
+
+    if _backdrop_component is None:
+        canvas = '<canvas id="rv-particles"></canvas>' if particles else ""
+        grain_cls = " rv-grain" if grain else ""
+        _backdrop_component = st.components.v2.component(
+            "reverie_backdrop",
+            html=(
+                f'<div class="rv-aurora{grain_cls}">'
+                '<div class="rv-aurora-blob"></div>'
+                '<div class="rv-aurora-blob"></div>'
+                '<div class="rv-aurora-blob"></div>'
+                f"</div>{canvas}"
+            ),
+            js=f"export default function (component) {{ {_PARTICLES_JS} }}",
+            isolate_styles=False,
+        )
+    _backdrop_component(data={})
 
 
 # ==============================================================================

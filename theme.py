@@ -470,6 +470,10 @@ def css_variables(theme: Theme) -> str:
         f"--rv-on-accent: {theme.on_accent};",
         f"--rv-accent-soft: {rgba(theme.accent_raw, 0.14)};",
         f"--rv-accent-line: {rgba(theme.accent_raw, 0.42)};",
+        # Consumed by the spotlight effect. Defined here so the effects
+        # stylesheet stays entirely token-driven and theme-independent, which
+        # lets it be registered once as static component CSS.
+        f"--rv-spotlight: {rgba(theme.accent_raw, 0.16)};",
         f"--rv-pos: {theme.pos};",
         f"--rv-neg: {theme.neg};",
         f"--rv-pos-fill: {theme.pos_raw};",
