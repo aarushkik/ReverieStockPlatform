@@ -922,10 +922,22 @@ def build_css(theme: Theme) -> str:
         font-weight: 600 !important;
         min-height: var(--rv-control-h) !important;
         padding: 0 var(--rv-space-3) !important;
+        /* Streamlit lets button labels wrap, which in a narrow nav column
+           breaks them mid-word ("Simula / tor"). Clip instead of wrapping. */
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
         transition: background var(--rv-dur) var(--rv-ease),
                     border-color var(--rv-dur) var(--rv-ease),
                     color var(--rv-dur) var(--rv-ease),
                     transform var(--rv-dur-fast) var(--rv-ease);
+    }}
+    div.stButton > button p, div.stFormSubmitButton > button p {{
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: inherit !important;
+        font-weight: inherit !important;
     }}
     div.stButton > button:hover, div.stDownloadButton > button:hover,
     div.stFormSubmitButton > button:hover {{
