@@ -3,12 +3,12 @@
   "n_train": 1950,
   "n_test": 650,
   "positive_rate": 0.3885,
-  "roc_auc": 0.9659,
-  "pr_auc": 0.941,
-  "brier_score": 0.0459,
-  "expected_calibration_error": 0.0181,
+  "roc_auc": 0.9638,
+  "pr_auc": 0.9377,
+  "brier_score": 0.0466,
+  "expected_calibration_error": 0.0178,
   "operating_point": {
-    "threshold": 0.12,
+    "threshold": 0.19,
     "true_positives": 238,
     "false_positives": 19,
     "true_negatives": 378,
@@ -23,14 +23,14 @@
     {
       "threshold": 0.3,
       "true_positives": 234,
-      "false_positives": 17,
-      "true_negatives": 380,
+      "false_positives": 18,
+      "true_negatives": 379,
       "false_negatives": 19,
-      "precision": 0.9323,
+      "precision": 0.9286,
       "recall": 0.9249,
-      "f1": 0.9286,
-      "false_positive_rate": 0.0428,
-      "accuracy": 0.9446
+      "f1": 0.9267,
+      "false_positive_rate": 0.0453,
+      "accuracy": 0.9431
     },
     {
       "threshold": 0.5,
@@ -46,76 +46,80 @@
     },
     {
       "threshold": 0.7,
-      "true_positives": 229,
+      "true_positives": 228,
       "false_positives": 12,
       "true_negatives": 385,
-      "false_negatives": 24,
-      "precision": 0.9502,
-      "recall": 0.9051,
-      "f1": 0.9271,
+      "false_negatives": 25,
+      "precision": 0.95,
+      "recall": 0.9012,
+      "f1": 0.9249,
       "false_positive_rate": 0.0302,
-      "accuracy": 0.9446
+      "accuracy": 0.9431
     },
     {
       "threshold": 0.9,
-      "true_positives": 219,
-      "false_positives": 8,
-      "true_negatives": 389,
-      "false_negatives": 34,
-      "precision": 0.9648,
-      "recall": 0.8656,
-      "f1": 0.9125,
-      "false_positive_rate": 0.0202,
-      "accuracy": 0.9354
+      "true_positives": 218,
+      "false_positives": 9,
+      "true_negatives": 388,
+      "false_negatives": 35,
+      "precision": 0.9604,
+      "recall": 0.8617,
+      "f1": 0.9083,
+      "false_positive_rate": 0.0227,
+      "accuracy": 0.9323
     }
   ],
   "feature_importance": [
     {
       "feature": "log_velocity_kmh",
-      "importance": 0.04187
+      "importance": 0.04809
     },
     {
       "feature": "device_familiarity",
-      "importance": 0.03658
+      "importance": 0.04016
     },
     {
       "feature": "new_city",
-      "importance": 0.01864
+      "importance": 0.02019
     },
     {
       "feature": "asn_familiarity",
-      "importance": 0.00505
-    },
-    {
-      "feature": "log_distance_km",
-      "importance": 0.00292
+      "importance": 0.00489
     },
     {
       "feature": "tz_mismatch",
-      "importance": 0.00278
-    },
-    {
-      "feature": "log_hours_since_last",
-      "importance": 0.00165
+      "importance": 0.00246
     },
     {
       "feature": "is_proxy",
-      "importance": 0.00138
+      "importance": 0.00189
     },
     {
-      "feature": "is_hosting_asn",
-      "importance": 0.00093
+      "feature": "log_distance_km",
+      "importance": 0.00182
     },
     {
       "feature": "failed_attempts_1h",
-      "importance": 0.00074
+      "importance": 0.00052
+    },
+    {
+      "feature": "is_hosting_asn",
+      "importance": 0.00018
+    },
+    {
+      "feature": "log_hours_since_last",
+      "importance": 8e-05
+    },
+    {
+      "feature": "new_country",
+      "importance": 2e-05
     },
     {
       "feature": "impossible_travel",
       "importance": 0.0
     },
     {
-      "feature": "new_country",
+      "feature": "country_familiarity",
       "importance": 0.0
     },
     {
@@ -123,24 +127,20 @@
       "importance": 0.0
     },
     {
-      "feature": "country_familiarity",
-      "importance": -1e-05
+      "feature": "log_logins_24h",
+      "importance": -7e-05
     },
     {
       "feature": "new_device",
-      "importance": -0.00012
-    },
-    {
-      "feature": "hour_deviation",
-      "importance": -0.00062
-    },
-    {
-      "feature": "log_logins_24h",
-      "importance": -0.00175
+      "importance": -0.00023
     },
     {
       "feature": "log_account_age_days",
-      "importance": -0.00246
+      "importance": -0.00302
+    },
+    {
+      "feature": "hour_deviation",
+      "importance": -0.00368
     }
   ],
   "by_scenario": {
@@ -166,13 +166,13 @@
     },
     "attack_residential_stealth": {
       "n": 35,
-      "errors": 1,
-      "error_rate": 0.0286
+      "errors": 2,
+      "error_rate": 0.0571
     },
     "attack_stolen_fingerprint": {
       "n": 28,
-      "errors": 2,
-      "error_rate": 0.0714
+      "errors": 1,
+      "error_rate": 0.0357
     },
     "legit_fumbled_password": {
       "n": 29,
@@ -231,7 +231,7 @@
     "log_account_age_days",
     "tz_mismatch"
   ],
-  "trained_at": "2026-08-14T13:51:49-0700",
+  "trained_at": "2026-08-14T14:37:28-0700",
   "training_data": "synthetic (auth/datasets.generate_login_dataset)",
   "caveat": "Trained on simulated accounts. Metrics measure recovery of the generator's process, not field accuracy against a live adversary. Retrain on auth/store.py login events once real data accumulates."
 }

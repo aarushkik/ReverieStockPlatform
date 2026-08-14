@@ -169,7 +169,7 @@
     "honeypot_filled",
     "no_interaction"
   ],
-  "trained_at": "2026-08-14T13:51:53-0700",
+  "trained_at": "2026-08-14T14:37:31-0700",
   "training_data": "synthetic (auth/datasets.generate_bot_dataset)",
   "caveat": "Trained on simulated telemetry across three automation tiers. The stealth tier is intentionally hard and partly unseparable; residual error there is expected and keeps the metrics honest."
 }

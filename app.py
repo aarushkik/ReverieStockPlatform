@@ -420,8 +420,9 @@ if st.query_params and not st.session_state.get("_query_consumed"):
 # click arriving on this run navigates immediately.
 if pref("effects"):
     _chrome = fx.mount(T)
-    if getattr(_chrome, "ticker", None):
-        go_to("RESEARCH", ticker=_chrome.ticker)
+    _click = getattr(_chrome, "ticker", None)
+    if _click:
+        go_to(_click.get("dest") or "RESEARCH", ticker=_click.get("symbol", ""))
         st.rerun()
 
 current_tab = st.session_state["current_tab"]
@@ -1715,7 +1716,7 @@ if current_tab == "MARKET_HOME":
             action_html = f'<span style="{action_style}">{item["type"].upper()}</span>'
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 12px 14px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={item['ticker']}" target="_self" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='var(--rv-pos)'" onmouseout="this.style.color='var(--rv-info)'">{item['ticker']}</a></td>
+                    <td style="padding: 12px 14px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{item['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;">{item['ticker']}</span></td>
                     <td style="padding: 12px 14px; color:var(--rv-text);">{item['owner']}</td>
                     <td style="padding: 12px 14px; color:var(--rv-text-muted);">{item['relation']}</td>
                     <td style="padding: 12px 14px; text-align:center;">{action_html}</td>
@@ -1892,7 +1893,7 @@ elif current_tab == "NEWS":
             badge_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 12px 14px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={tk}" target="_self" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;" onmouseover="this.style.color='var(--rv-pos)'" onmouseout="this.style.color='var(--rv-info)'">{tk}</a></td>
+                    <td style="padding: 12px 14px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{tk}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;">{tk}</span></td>
                     <td style="padding: 12px 14px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${price:,.2f}</td>
                     <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
                 </tr>
@@ -2037,7 +2038,7 @@ elif current_tab == "MARKETS":
             badge_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 10px 12px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={r['ticker']}" target="_self" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</a></td>
+                    <td style="padding: 10px 12px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{r['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</span></td>
                     <td style="padding: 10px 12px; text-align:right; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${r['close']:.2f}</td>
                     <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">+{chg:.2f}%</span></td>
                 </tr>
@@ -2063,7 +2064,7 @@ elif current_tab == "MARKETS":
             badge_style = "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 10px 12px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={r['ticker']}" target="_self" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</a></td>
+                    <td style="padding: 10px 12px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{r['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</span></td>
                     <td style="padding: 10px 12px; text-align:right; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${r['close']:.2f}</td>
                     <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">{chg:.2f}%</span></td>
                 </tr>
@@ -2088,7 +2089,7 @@ elif current_tab == "MARKETS":
             vol_str = format_volume(r["volume"])
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 10px 12px; font-weight:700;"><a href="/?tab=RESEARCH&ticker={r['ticker']}" target="_self" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</a></td>
+                    <td style="padding: 10px 12px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{r['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{r['ticker']}</span></td>
                     <td style="padding: 10px 12px; text-align:right; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${r['close']:.2f}</td>
                     <td style="padding: 10px 12px; text-align:right; color:var(--rv-text-muted); font-family:'JetBrains Mono', monospace; font-weight:700;">{vol_str}</td>
                 </tr>
@@ -2476,7 +2477,7 @@ elif current_tab == "TRADE_DESK":
             badge_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 10px 12px; font-weight:700;"><a href="/?tab=TRADE_DESK&ticker={tk}" target="_self" style="color:var(--rv-info); text-decoration:none;">{tk}</a></td>
+                    <td style="padding: 10px 12px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{tk}" data-rv-dest="TRADE_DESK" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{tk}</span></td>
                     <td style="padding: 10px 12px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${price:.2f}</td>
                     <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">{sign_chg}{chg:.2f}%</span></td>
                 </tr>
@@ -2510,7 +2511,7 @@ elif current_tab == "TRADE_DESK":
                 h_cc = "color-green" if h_ret >= 0 else "color-red"
                 st.markdown(f"""
                     <tr style="border-bottom: 1px solid var(--rv-border);">
-                        <td style="padding: 8px 10px; font-weight:700;"><a href="/?tab=TRADE_DESK&ticker={h_tk}" target="_self" style="color:var(--rv-info); text-decoration:none;">{h_tk}</a></td>
+                        <td style="padding: 8px 10px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{h_tk}" data-rv-dest="TRADE_DESK" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{h_tk}</span></td>
                         <td style="padding: 8px 10px; text-align:right; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">{h_shares}</td>
                         <td style="padding: 8px 10px; text-align:right; color:var(--rv-text); font-weight:700; font-family:'JetBrains Mono', monospace;">${h_val:,.2f}</td>
                         <td style="padding: 8px 10px; text-align:right; font-weight:700;" class="{h_cc}">{h_sign}{h_ret:.1f}%</td>
