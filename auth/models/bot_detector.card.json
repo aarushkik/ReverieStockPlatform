@@ -1,0 +1,175 @@
+{
+  "n_total": 9000,
+  "n_train": 6750,
+  "n_test": 2250,
+  "positive_rate": 0.4227,
+  "roc_auc": 0.9775,
+  "pr_auc": 0.9662,
+  "brier_score": 0.0222,
+  "expected_calibration_error": 0.0049,
+  "operating_point": {
+    "threshold": 0.87,
+    "true_positives": 921,
+    "false_positives": 23,
+    "true_negatives": 1276,
+    "false_negatives": 30,
+    "precision": 0.9756,
+    "recall": 0.9685,
+    "f1": 0.972,
+    "false_positive_rate": 0.0177,
+    "accuracy": 0.9764
+  },
+  "sweep": [
+    {
+      "threshold": 0.3,
+      "true_positives": 926,
+      "false_positives": 26,
+      "true_negatives": 1273,
+      "false_negatives": 25,
+      "precision": 0.9727,
+      "recall": 0.9737,
+      "f1": 0.9732,
+      "false_positive_rate": 0.02,
+      "accuracy": 0.9773
+    },
+    {
+      "threshold": 0.5,
+      "true_positives": 926,
+      "false_positives": 26,
+      "true_negatives": 1273,
+      "false_negatives": 25,
+      "precision": 0.9727,
+      "recall": 0.9737,
+      "f1": 0.9732,
+      "false_positive_rate": 0.02,
+      "accuracy": 0.9773
+    },
+    {
+      "threshold": 0.7,
+      "true_positives": 925,
+      "false_positives": 26,
+      "true_negatives": 1273,
+      "false_negatives": 26,
+      "precision": 0.9727,
+      "recall": 0.9727,
+      "f1": 0.9727,
+      "false_positive_rate": 0.02,
+      "accuracy": 0.9769
+    },
+    {
+      "threshold": 0.9,
+      "true_positives": 917,
+      "false_positives": 23,
+      "true_negatives": 1276,
+      "false_negatives": 34,
+      "precision": 0.9755,
+      "recall": 0.9642,
+      "f1": 0.9699,
+      "false_positive_rate": 0.0177,
+      "accuracy": 0.9747
+    }
+  ],
+  "feature_importance": [
+    {
+      "feature": "pointer_entropy",
+      "importance": 0.0734
+    },
+    {
+      "feature": "log_fill_time_ms",
+      "importance": 0.01667
+    },
+    {
+      "feature": "pointer_straightness",
+      "importance": 0.00284
+    },
+    {
+      "feature": "pointer_samples",
+      "importance": 0.00267
+    },
+    {
+      "feature": "keystroke_iki_cv",
+      "importance": 0.00225
+    },
+    {
+      "feature": "webdriver_flag",
+      "importance": 0.00077
+    },
+    {
+      "feature": "plugin_count",
+      "importance": 0.0007
+    },
+    {
+      "feature": "ua_entropy",
+      "importance": 0.00062
+    },
+    {
+      "feature": "keystroke_iki_mean",
+      "importance": 0.00053
+    },
+    {
+      "feature": "paste_used",
+      "importance": 0.00019
+    },
+    {
+      "feature": "headless_ua",
+      "importance": 0.0
+    },
+    {
+      "feature": "touch_ua_agreement",
+      "importance": 0.0
+    },
+    {
+      "feature": "no_interaction",
+      "importance": 0.0
+    },
+    {
+      "feature": "hardware_concurrency",
+      "importance": -2e-05
+    },
+    {
+      "feature": "honeypot_filled",
+      "importance": -4e-05
+    },
+    {
+      "feature": "language_count",
+      "importance": -0.00019
+    },
+    {
+      "feature": "keystroke_count",
+      "importance": -0.00023
+    },
+    {
+      "feature": "device_memory",
+      "importance": -0.00053
+    },
+    {
+      "feature": "screen_plausible",
+      "importance": -0.00082
+    }
+  ],
+  "model": "CalibratedClassifierCV(HistGradientBoostingClassifier, isotonic)",
+  "features": [
+    "webdriver_flag",
+    "headless_ua",
+    "ua_entropy",
+    "plugin_count",
+    "language_count",
+    "hardware_concurrency",
+    "device_memory",
+    "screen_plausible",
+    "touch_ua_agreement",
+    "log_fill_time_ms",
+    "pointer_samples",
+    "pointer_entropy",
+    "pointer_straightness",
+    "keystroke_count",
+    "keystroke_iki_mean",
+    "keystroke_iki_cv",
+    "paste_used",
+    "honeypot_filled",
+    "no_interaction"
+  ],
+  "trained_at": "2026-08-14T13:51:53-0700",
+  "training_data": "synthetic (auth/datasets.generate_bot_dataset)",
+  "caveat": "Trained on simulated telemetry across three automation tiers. The stealth tier is intentionally hard and partly unseparable; residual error there is expected and keeps the metrics honest."
+}
