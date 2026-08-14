@@ -566,6 +566,11 @@ def build_css(theme: Theme) -> str:
     }}
     .stAppViewContainer, .stMain {{ background: var(--rv-bg) !important; }}
 
+    /* Tells the browser which way native UI should lean - form controls,
+       scrollbar gutters, autofill backgrounds and the caret. Without it a
+       light palette still gets a dark autofill highlight. */
+    :root, .stApp {{ color-scheme: {'dark' if p.is_dark else 'light'}; }}
+
     .block-container {{
         max-width: 100% !important;
         padding: calc(var(--rv-nav-h) + var(--rv-space-3)) var(--rv-space-4) var(--rv-space-6) !important;
@@ -875,13 +880,54 @@ def build_css(theme: Theme) -> str:
     /* =====================================================================
        7. FORM CONTROLS
        ===================================================================== */
-    div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] > div {{
+    /* Streamlit compiles its own palette into generated class names at build
+       time and exposes no CSS variables to override, so a light palette here
+       leaves its widget internals dark - and since our text colour *does*
+       apply, the result is dark text on a dark field: worse than either theme
+       alone. These rules reach the widget internals through stable
+       data-testid hooks rather than the generated class names, which change
+       between Streamlit versions. */
+    [data-testid="stTextInputRootElement"],
+    [data-testid="stNumberInputContainer"],
+    [data-testid="stTextAreaRootElement"],
+    div[data-baseweb="input"], div[data-baseweb="textarea"],
+    div[data-baseweb="select"] > div {{
         background: var(--rv-surface-alt) !important;
         border: 1px solid var(--rv-border) !important;
         border-radius: var(--rv-radius-sm) !important;
         color: var(--rv-text) !important;
         transition: border-color var(--rv-dur) var(--rv-ease),
                     box-shadow var(--rv-dur) var(--rv-ease);
+    }}
+    [data-testid="stTextInputRootElement"]:focus-within,
+    [data-testid="stNumberInputContainer"]:focus-within {{
+        border-color: var(--rv-accent) !important;
+        box-shadow: 0 0 0 3px var(--rv-accent-soft) !important;
+    }}
+
+    [data-testid="stPopoverButton"] {{
+        background: var(--rv-surface-alt) !important;
+        color: var(--rv-text) !important;
+        border: 1px solid var(--rv-border) !important;
+        border-radius: var(--rv-radius-sm) !important;
+        min-height: var(--rv-control-h) !important;
+        font-size: var(--rv-fs-small) !important;
+        font-weight: 600 !important;
+    }}
+    [data-testid="stPopoverButton"]:hover {{
+        background: var(--rv-surface-hi) !important;
+        border-color: var(--rv-border-hi) !important;
+    }}
+    [data-testid="stPopoverBody"], div[data-baseweb="popover"] > div,
+    div[data-baseweb="menu"], ul[role="listbox"] {{
+        background: var(--rv-surface) !important;
+        border: 1px solid var(--rv-border) !important;
+        border-radius: var(--rv-radius) !important;
+        color: var(--rv-text) !important;
+    }}
+    li[role="option"] {{ color: var(--rv-text) !important; }}
+    li[role="option"]:hover, li[aria-selected="true"] {{
+        background: var(--rv-surface-hi) !important;
     }}
     div[data-baseweb="input"]:focus-within,
     div[data-baseweb="textarea"]:focus-within,
@@ -1050,6 +1096,57 @@ def build_css(theme: Theme) -> str:
     }}
     .scan-row:hover {{ background: var(--rv-surface-alt); }}
     .scan-row:last-child {{ border-bottom: none; }}
+
+    /* Scanner grid. Columns are fractional with a floor rather than fixed
+       pixel widths, so at narrow widths they compress proportionally and
+       truncate instead of overlapping each other. */
+    .rv-scan {{ overflow: hidden; }}
+    .rv-scan-row {{
+        display: grid;
+        grid-template-columns:
+            minmax(38px, 0.9fr) minmax(52px, 1.1fr) minmax(46px, 0.95fr)
+            minmax(40px, 0.85fr) minmax(52px, 1.05fr);
+        gap: var(--rv-space-1);
+        align-items: center;
+        padding: 0 var(--rv-space-2);
+        height: var(--rv-row-h);
+        font-size: var(--rv-fs-small);
+        border-bottom: 1px solid var(--rv-hairline);
+        cursor: pointer;
+        transition: background var(--rv-dur-fast) linear;
+    }}
+    .rv-scan-row > span {{
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }}
+    .rv-scan-row:last-child {{ border-bottom: none; }}
+    .rv-scan-row:hover {{ background: var(--rv-surface-alt); }}
+    .rv-scan-row:focus-visible {{
+        outline: 2px solid var(--rv-accent);
+        outline-offset: -2px;
+    }}
+    .rv-scan-sym {{
+        font-family: var(--rv-mono);
+        font-weight: 650;
+        color: var(--rv-accent);
+    }}
+    .rv-scan-head {{
+        cursor: default;
+        height: auto;
+        padding-top: var(--rv-space-1);
+        padding-bottom: var(--rv-space-1);
+        font-size: var(--rv-fs-eyebrow);
+        font-weight: 600;
+        color: var(--rv-text-faint);
+        text-transform: var(--rv-label-transform);
+        letter-spacing: var(--rv-label-spacing);
+        background: var(--rv-surface-alt);
+        border-bottom: 1px solid var(--rv-border);
+    }}
+    .rv-scan-head:hover {{ background: var(--rv-surface-alt); }}
+    .rv-right {{ text-align: right; }}
 
     .vol-track {{
         background: var(--rv-surface-hi);

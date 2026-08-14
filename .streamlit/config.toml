@@ -1,0 +1,28 @@
+# Streamlit's own base theme.
+#
+# The app's real design system lives in theme.py and is applied as a stylesheet
+# at runtime, which is what makes palettes switchable per user. This file only
+# sets Streamlit's *starting* colours, and it exists because Streamlit compiles
+# its palette into generated class names at build time with no CSS variables to
+# override. Anything the runtime stylesheet cannot reach - the toolbar, the
+# loading skeleton, the connection-status toast, the initial paint before the
+# stylesheet lands - falls back to these values.
+#
+# Kept in sync with the default "Midnight" palette in theme.py so the fallback
+# is invisible rather than a flash of mismatched colour on load.
+
+[theme]
+base = "dark"
+primaryColor = "#00D68F"
+backgroundColor = "#0A0D13"
+secondaryBackgroundColor = "#161C29"
+textColor = "#E8EDF5"
+font = "sans serif"
+
+[server]
+# The terminal polls quotes on a timer; file-watching on every rerun is wasted
+# work in a deployed container.
+fileWatcherType = "auto"
+
+[browser]
+gatherUsageStats = false
