@@ -569,6 +569,21 @@ _RUNTIME_JS = r"""
     }
   }
 
+  // ------------------------------------------------------- ticker click bus
+  // Server-rendered rows need to be clickable without a page load. Anchors to
+  // /?tab=RESEARCH&ticker=X reload the whole Streamlit session; st.dataframe
+  // avoids that but renders through glide-data-grid, which takes its colours
+  // from Streamlit's build-time config and therefore cannot follow a
+  // switchable palette. Delegating clicks to a component trigger keeps both:
+  // themed markup and an in-place rerun.
+  doc.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest && e.target.closest('[data-rv-ticker]');
+    if (!el) return;
+    e.preventDefault();
+    var symbol = el.getAttribute('data-rv-ticker');
+    if (symbol && W.__rvEmitTicker) W.__rvEmitTicker(symbol);
+  });
+
   // Streamlit mutates the tree well after this script runs, so watch for it.
   // Coalesced with rAF because a rerun produces a burst of mutations.
   var pending = false;
@@ -627,6 +642,12 @@ def _get_chrome_component():
             css=css,
             js=f"""
             export default function (component) {{
+                const {{ setTriggerValue }} = component;
+                // Republished each mount so the handler installed by the
+                // runtime always talks to the live component instance.
+                window.__rvEmitTicker = function (symbol) {{
+                    setTriggerValue('ticker', symbol);
+                }};
                 {_RUNTIME_JS}
             }}
             """,
@@ -637,12 +658,14 @@ def _get_chrome_component():
     return _chrome_component
 
 
-def mount(theme: Theme) -> None:
+def mount(theme: Theme):
     """Install the effects stylesheet and interactive runtime for this page.
 
-    Call once per run, after the theme stylesheet.
+    Call once per run, after the theme stylesheet. Returns the component
+    result, whose ``ticker`` field carries a symbol when the user clicked a
+    ``data-rv-ticker`` element anywhere in the app.
     """
-    _get_chrome_component()(data={})
+    return _get_chrome_component()(data={}, on_ticker_change=lambda: None)
 
 
 _backdrop_component = None

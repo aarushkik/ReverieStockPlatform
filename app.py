@@ -282,23 +282,41 @@ APPEARANCE_DEFAULTS = {
     "effects": True,
 }
 
-for _key, _default in APPEARANCE_DEFAULTS.items():
-    st.session_state.setdefault(f"appearance_{_key}", _default)
+# Preferences are held in one plain dict, deliberately *not* under the
+# appearance widgets' own keys.
+#
+# Streamlit garbage-collects the session-state entry of any keyed widget that
+# was not instantiated on the previous run. The sidebar does not render on the
+# sign-in run (the script stops at the auth gate), so widget-owned values were
+# being purged and re-seeded from defaults on the very next run - which is why
+# a saved palette applied for exactly one frame and then snapped back to
+# Midnight. A non-widget key is not subject to that collection.
+if "appearance" not in st.session_state:
+    st.session_state["appearance"] = dict(APPEARANCE_DEFAULTS)
+
+
+def pref(name):
+    return st.session_state["appearance"].get(name, APPEARANCE_DEFAULTS[name])
+
+
+def _commit_pref(name: str) -> None:
+    """Copy a sidebar widget's value into the canonical dict."""
+    st.session_state["appearance"][name] = st.session_state[f"ui_{name}"]
 
 
 def active_theme() -> theme_mod.Theme:
     """Resolve the current appearance preferences into a Theme."""
     return theme_mod.Theme(
-        palette_key=st.session_state["appearance_palette"],
-        accent_key=st.session_state["appearance_accent"],
-        density_key=st.session_state["appearance_density"],
-        radius_key=st.session_state["appearance_radius"],
-        motion_key=st.session_state["appearance_motion"],
-        cvd_key=st.session_state["appearance_cvd"],
-        type_scale=st.session_state["appearance_type_scale"],
-        glass=st.session_state["appearance_glass"],
-        grid_lines=st.session_state["appearance_grid_lines"],
-        uppercase_labels=st.session_state["appearance_uppercase_labels"],
+        palette_key=pref("palette"),
+        accent_key=pref("accent"),
+        density_key=pref("density"),
+        radius_key=pref("radius"),
+        motion_key=pref("motion"),
+        cvd_key=pref("cvd"),
+        type_scale=pref("type_scale"),
+        glass=pref("glass"),
+        grid_lines=pref("grid_lines"),
+        uppercase_labels=pref("uppercase_labels"),
     )
 
 
@@ -319,15 +337,15 @@ if CURRENT_USER is None:
 # Restore this user's saved appearance on the first run after sign-in, so
 # preferences follow the account rather than the browser tab.
 if not st.session_state.get("_appearance_restored"):
-    for _key, _value in (CURRENT_USER.preferences.get("appearance") or {}).items():
-        if f"appearance_{_key}" in st.session_state:
-            st.session_state[f"appearance_{_key}"] = _value
+    _saved = (CURRENT_USER.preferences or {}).get("appearance") or {}
+    st.session_state["appearance"].update(
+        {k: v for k, v in _saved.items() if k in APPEARANCE_DEFAULTS}
+    )
     st.session_state["_appearance_restored"] = True
     T = active_theme()
+    # A second stylesheet for this run only; later rules win the cascade. From
+    # the next run the theme is resolved correctly at the top of the script.
     st.html(theme_mod.build_css(T))
-
-if st.session_state["appearance_effects"]:
-    fx.mount(T)
 
 PLOTLY_LAYOUT = theme_mod.plotly_layout(T)
 
@@ -360,7 +378,7 @@ TABS = [
 _TAB_IDS = {tid for tid, _, _ in TABS}
 
 
-def go_to(tab_id: str, ticker: str = "") -> None:
+def go_to(tab_id: str, ticker: str = "") -> None:  # noqa: E302
     """Switch tabs in place.
 
     Navigation used to be anchor links to /?tab=X, which made every tab change
@@ -371,7 +389,15 @@ def go_to(tab_id: str, ticker: str = "") -> None:
     if tab_id in _TAB_IDS:
         st.session_state["current_tab"] = tab_id
     if ticker:
-        st.session_state["active_ticker"] = ticker.strip().upper()
+        symbol = ticker.strip().upper()
+        st.session_state["active_ticker"] = symbol
+        # The nav symbol box is a keyed widget, and Streamlit ignores a keyed
+        # widget's `value=` on every run after the first - its session-state
+        # entry wins. Without this the box kept showing the old symbol while
+        # the rest of the app had already moved on, so clicking SLB in a
+        # scanner left "AAPL" in the field. Safe to assign here because every
+        # caller runs before the widget is instantiated.
+        st.session_state["nav_ticker_input"] = symbol
 
 
 # Deep links are still honoured, but only on first load - once consumed the
@@ -388,6 +414,15 @@ if st.query_params and not st.session_state.get("_query_consumed"):
         st.session_state["current_tab"] = "RESEARCH"
     st.session_state["_query_consumed"] = True
     st.query_params.clear()
+
+# The chrome component installs the motion runtime and carries the ticker
+# click bus back from the page. Mounted after go_to() is defined because a
+# click arriving on this run navigates immediately.
+if pref("effects"):
+    _chrome = fx.mount(T)
+    if getattr(_chrome, "ticker", None):
+        go_to("RESEARCH", ticker=_chrome.ticker)
+        st.rerun()
 
 current_tab = st.session_state["current_tab"]
 
@@ -422,9 +457,9 @@ with _nav_left:
 with _nav_right:
     _ticker_col, _user_col = st.columns([1.6, 1], vertical_alignment="center")
     with _ticker_col:
+        st.session_state.setdefault("nav_ticker_input", st.session_state["active_ticker"])
         _typed = st.text_input(
             "Symbol",
-            value=st.session_state["active_ticker"],
             key="nav_ticker_input",
             label_visibility="collapsed",
             placeholder="Symbol",
@@ -1347,31 +1382,60 @@ def format_market_cap(val):
         return f"${val/1e6:.2f}M"
     return f"${val:.0f}"
 
-def render_scanner_header():
-    return """
-    <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--rv-border); padding: 6px 12px; font-size:11px; font-family: 'JetBrains Mono', monospace; color:var(--rv-text-muted); font-weight:700; background-color: var(--rv-surface); box-sizing: border-box;">
-        <span style="width:55px; text-align:left;">Ticker</span>
-        <span style="width:65px; text-align:right;">Price</span>
-        <span style="width:60px; text-align:right;">Change</span>
-        <span style="width:65px; text-align:right;">Volume</span>
-        <span style="width:85px; text-align:right;">Signal</span>
-    </div>
-    """
+def render_scanner(rows, signal, key=None, height=None):
+    """A scanner panel: one themed row per symbol, click to research it.
 
-def render_scanner_row(ticker, price, change, volume, signal, scls, row_index=0):
-    bg_color = "var(--rv-surface)" if row_index % 2 == 0 else "var(--rv-surface-alt)"
-    sign = "+" if change >= 0 else ""
-    cc = "color-green" if change >= 0 else "color-red"
-    vol_str = format_volume(volume)
-    return f"""
-    <div class="scan-row" style="font-variant-numeric: tabular-nums; font-size: 12px; font-family: 'Inter', sans-serif; background-color: {bg_color}; padding: 6px 12px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--rv-border); align-items: center; box-sizing: border-box;">
-        <a href="/?tab=RESEARCH&ticker={ticker}" target="_self" style="font-weight:700; color:var(--rv-info); width:55px; text-decoration:none;">{ticker}</a>
-        <span style="color:var(--rv-text); width:65px; text-align:right; font-weight:600; font-family: 'JetBrains Mono', monospace;">${price:.2f}</span>
-        <span class="{cc}" style="width:60px; text-align:right; font-weight:700; font-family: 'JetBrains Mono', monospace;">{sign}{change:.2f}%</span>
-        <span style="color:var(--rv-text-muted); width:65px; text-align:right; font-weight:500; font-family: 'JetBrains Mono', monospace;">{vol_str}</span>
-        <span class="{scls}" style="width:85px; text-align:right; font-size:10px; font-weight:700; font-family: 'JetBrains Mono', monospace;">{signal}</span>
-    </div>
+    Two defects in the original are fixed here.
+
+    Layout: the five columns had fixed pixel widths summing to 330px inside a
+    third-width column that is roughly 205px, so the cells shrank and their
+    contents collided into an unreadable run ("AMD$514.39+6.50%24.9M"). This is
+    a grid whose columns are fractional with a minimum, so they compress
+    proportionally and truncate instead of overlapping.
+
+    Navigation: ticker cells were anchors to /?tab=RESEARCH&ticker=X, which
+    reloaded the whole Streamlit session on every click. They are now plain
+    elements carrying data-rv-ticker, which the chrome component's delegated
+    click handler turns into an in-place rerun.
+
+    st.dataframe would also solve both and add sorting, but it renders through
+    glide-data-grid, which takes its colours from Streamlit's build-time config
+    rather than CSS - so it stays dark under a light palette and cannot follow
+    the theme. Themed markup wins here.
     """
+    if not rows:
+        st.html(fx.empty_state("No matches", "◇"))
+        return
+
+    body = []
+    for r in rows:
+        change = r["change"]
+        cls = "rv-pos" if change >= 0 else "rv-neg"
+        sign = "+" if change >= 0 else ""
+        row_signal = r.get("signal", signal)
+        pill = {
+            "GAINER": "pill-pos", "52W HIGH": "pill-pos",
+            "LOSER": "pill-neg", "52W LOW": "pill-neg",
+        }.get(row_signal, "pill-neut")
+        body.append(
+            f'<div class="rv-scan-row" data-rv-ticker="{r["ticker"]}" '
+            f'role="button" tabindex="0" title="Research {r["ticker"]}">'
+            f'<span class="rv-scan-sym">{r["ticker"]}</span>'
+            f'<span class="rv-num rv-right">${r["close"]:,.2f}</span>'
+            f'<span class="rv-num rv-right {cls}">{sign}{change:.2f}%</span>'
+            f'<span class="rv-num rv-right rv-muted">{format_volume(r["volume"])}</span>'
+            f'<span class="rv-right"><span class="{pill}">{row_signal}</span></span>'
+            f"</div>"
+        )
+
+    st.html(
+        '<div class="rv-card rv-card--flush rv-scan">'
+        '<div class="rv-scan-row rv-scan-head">'
+        '<span>Ticker</span><span class="rv-right">Price</span>'
+        '<span class="rv-right">Chg</span><span class="rv-right">Vol</span>'
+        '<span class="rv-right">Signal</span></div>'
+        + "".join(body) + "</div>"
+    )
 
 def make_heatmap_chart(df: pd.DataFrame):
     if df.empty:
@@ -1558,30 +1622,16 @@ if current_tab == "MARKET_HOME":
     col1, col2, col3 = st.columns([1, 1.4, 1])
 
     with col1:
-        st.subheader("Top Gainers")
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown(render_scanner_header(), unsafe_allow_html=True)
+        st.html(fx.section_header("Top Gainers", "click a row to research"))
         with st.spinner("Scanning gainers..."):
             scanners = get_market_scanners()
-        if scanners["gainers"]:
-            for idx, r in enumerate(scanners["gainers"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "GAINER", "pill-pos", row_index=idx), unsafe_allow_html=True)
-        else:
-            st.markdown("<div style='color:var(--rv-text-faint); font-size:11px; padding: 6px;'>No data</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        render_scanner(scanners["gainers"], "GAINER", key="scan_gainers")
 
-        st.subheader("Top Losers")
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["losers"]:
-            for idx, r in enumerate(scanners["losers"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "LOSER", "pill-neg", row_index=idx), unsafe_allow_html=True)
-        else:
-            st.markdown("<div style='color:var(--rv-text-faint); font-size:11px; padding: 6px;'>No data</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.html(fx.section_header("Top Losers"))
+        render_scanner(scanners["losers"], "LOSER", key="scan_losers")
 
     with col2:
-        st.subheader("Market Heatmap")
+        st.html(fx.section_header("Market Heatmap"))
         with st.spinner("Loading heatmap..."):
             hm_df = get_market_heatmap_data()
         if not hm_df.empty:
@@ -1592,30 +1642,15 @@ if current_tab == "MARKET_HOME":
             st.markdown("<div class='fintech-card'><div style='color:var(--rv-text-faint); font-size:11px;'>No heatmap data</div></div>", unsafe_allow_html=True)
 
     with col3:
-        st.subheader("Unusual Volume")
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["unusual_vol"]:
-            for idx, r in enumerate(scanners["unusual_vol"]):
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "VOL SPIKE", "pill-neut", row_index=idx), unsafe_allow_html=True)
-        else:
-            st.markdown("<div style='color:var(--rv-text-faint); font-size:11px; padding: 6px;'>No anomaly detected</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.html(fx.section_header("Unusual Volume"))
+        render_scanner(scanners["unusual_vol"], "VOL SPIKE", key="scan_unusual")
 
-        st.subheader("New 52W Highs / Lows")
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown(render_scanner_header(), unsafe_allow_html=True)
-        if scanners["new_hi"] or scanners["new_lo"]:
-            row_idx = 0
-            for r in scanners["new_hi"][:3]:
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W HIGH", "pill-pos", row_index=row_idx), unsafe_allow_html=True)
-                row_idx += 1
-            for r in scanners["new_lo"][:3]:
-                st.markdown(render_scanner_row(r["ticker"], r["close"], r["change"], r["volume"], "52W LOW", "pill-neg", row_index=row_idx), unsafe_allow_html=True)
-                row_idx += 1
-        else:
-            st.markdown("<div style='color:var(--rv-text-faint); font-size:11px; padding: 6px;'>No breakout events</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.html(fx.section_header("New 52W Highs / Lows"))
+        _breakouts = (
+            [dict(r, signal="52W HIGH") for r in scanners["new_hi"][:5]]
+            + [dict(r, signal="52W LOW") for r in scanners["new_lo"][:5]]
+        )
+        render_scanner(_breakouts, "BREAKOUT", key="scan_breakouts")
 
     # ── BOTTOM ROW WIDGETS (COMMODITIES & INSIDERS) ──
     row_futures, row_insiders = st.columns([1.4, 2.6])
@@ -2950,10 +2985,257 @@ elif current_tab == "PATTERN_GUIDE":
     <p style="color:var(--rv-text); line-height:1.4; margin-bottom:12px;">Support marks the historical floor where buyers emerge to halt price declines. Resistance marks the historical ceiling where sellers supply stock to prevent further advances. Computed from the 20-day high and low parameters.</p>
 </div>
 """, unsafe_allow_html=True)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TAB 8: SECURITY CONSOLE
+# ──────────────────────────────────────────────────────────────────────────────
+elif current_tab == "SECURITY":
+    st.html(fx.section_header(
+        "Security", "Sign-in activity and the models that score it"))
+
+    _events = auth_store.get_events(CURRENT_USER.username, limit=200)
+    _session_risk = st.session_state.get(auth_ui.SESSION_RISK) or {}
+    _cards = risk_scoring.model_cards()
+
+    # ── CURRENT SESSION ──
+    _sc1, _sc2, _sc3, _sc4 = st.columns(4)
+    _band = _session_risk.get("band", "low")
+    _band_token = {
+        "low": ("var(--rv-pos)", "Low"),
+        "elevated": ("var(--rv-warn)", "Elevated"),
+        "high": ("var(--rv-neg)", "High"),
+    }.get(_band, ("var(--rv-text-muted)", "Unknown"))
+
+    with _sc1:
+        st.html(f"""
+        <div class="rv-metric">
+          <span class="rv-metric-label">Session risk</span>
+          <span class="rv-metric-value" style="color:{_band_token[0]}">
+            {int(_session_risk.get('score', 0) * 100)}%</span>
+          <span class="rv-metric-delta" style="color:{_band_token[0]}">
+            {_band_token[1]}</span>
+        </div>""")
+    with _sc2:
+        st.html(fx.metric("Signed in from",
+                          _session_risk.get("location") or "Unknown location"))
+    with _sc3:
+        st.html(fx.metric("Known devices", str(len(CURRENT_USER.known_devices))))
+    with _sc4:
+        _fails = auth_store.count_recent_failures(CURRENT_USER.username, 86400)
+        st.html(fx.metric(
+            "Failed attempts (24h)", str(_fails),
+            delta="Review activity below" if _fails else "None",
+            delta_kind="neg" if _fails else "neutral"))
+
+    if _session_risk.get("reasons"):
+        st.html(
+            '<div class="rv-card" style="margin-top:var(--rv-space-2)">'
+            '<div class="rv-eyebrow" style="margin-bottom:6px">'
+            'Why this session was scored the way it was</div>'
+            '<ul style="margin:0 0 0 18px;padding:0;font-size:var(--rv-fs-small);'
+            'color:var(--rv-text-muted);line-height:1.6">'
+            + "".join(f"<li>{r}</li>" for r in _session_risk["reasons"])
+            + "</ul></div>"
+        )
+
+    # ── ACTIVITY ──
+    st.html(fx.section_header("Recent activity", f"{len(_events)} events"))
+
+    if not _events:
+        st.html(fx.empty_state("No sign-in activity recorded yet", "◇"))
+    else:
+        _rows = []
+        for _e in _events[:40]:
+            _when = datetime.fromtimestamp(_e["timestamp"]).strftime("%d %b  %H:%M")
+            _place = ", ".join(p for p in (_e.get("city"), _e.get("country_code")) if p) \
+                or "Unknown"
+            _decision = _e.get("decision", "")
+            _pill = {
+                "allow": ("pill-pos", "Allowed"),
+                "challenge": ("pill-neut", "Challenged"),
+                "challenge_passed": ("pill-pos", "Verified"),
+                "deny": ("pill-neg", "Blocked"),
+            }.get(_decision, ("pill-neut", _decision or "—"))
+            _risk_pct = int(_e.get("risk_score", 0) * 100)
+            _bot_pct = int(_e.get("bot_score", 0) * 100)
+            _flags = " ".join(
+                f'<span class="pill-neut">{f}</span>'
+                for f in (["datacenter"] if _e.get("is_hosting") else [])
+                + (["proxy"] if _e.get("is_proxy") else [])
+                + list(_e.get("hard_rules") or [])
+            )
+            _rows.append(f"""
+            <tr>
+              <td class="rv-mono">{_when}</td>
+              <td><span class="{_pill[0]}">{_pill[1]}</span></td>
+              <td class="rv-right">{_risk_pct}%</td>
+              <td class="rv-right">{_bot_pct}%</td>
+              <td>{_place}</td>
+              <td class="rv-truncate" style="max-width:150px">{_e.get('org') or _e.get('asn') or '—'}</td>
+              <td>{_flags or '—'}</td>
+            </tr>""")
+
+        st.html(
+            '<div class="rv-card rv-card--flush" style="overflow-x:auto">'
+            '<table><thead><tr>'
+            '<th>When</th><th>Outcome</th>'
+            '<th class="rv-right">Risk</th><th class="rv-right">Bot</th>'
+            '<th>Location</th><th>Network</th><th>Flags</th>'
+            '</tr></thead><tbody>' + "".join(_rows) + "</tbody></table></div>"
+        )
+
+    # ── MODELS ──
+    st.html(fx.section_header(
+        "Detection models", "Trained on simulated data - see caveat"))
+
+    _mc1, _mc2 = st.columns(2)
+    for _col, (_key, _title) in zip(
+        (_mc1, _mc2),
+        (("login_risk", "Suspicious sign-in"), ("bot_detector", "Automation")),
+    ):
+        _card = _cards.get(_key) or {}
+        with _col:
+            if not _card:
+                st.html(fx.empty_state(
+                    f"{_title} model not trained", "◇",
+                    "Run: python -m auth.train"))
+                continue
+            _op = _card.get("operating_point", {})
+            _top = _card.get("feature_importance", [])[:5]
+            _bars = "".join(
+                f'<div class="rv-row" style="gap:8px;margin-bottom:3px">'
+                f'<span style="font-size:var(--rv-fs-micro);'
+                f'color:var(--rv-text-muted);width:150px;flex:none" '
+                f'class="rv-truncate">{_f["feature"]}</span>'
+                f'<span style="flex:1;height:5px;background:var(--rv-surface-hi);'
+                f'border-radius:999px;overflow:hidden">'
+                f'<span style="display:block;height:100%;'
+                f'width:{min(100, _f["importance"] / max(_top[0]["importance"], 1e-9) * 100):.0f}%;'
+                f'background:var(--rv-accent-fill)"></span></span></div>'
+                for _f in _top
+            )
+            st.html(f"""
+            <div class="rv-card rv-spotlight">
+              <div class="rv-row rv-row--between" style="margin-bottom:10px">
+                <span style="font-size:var(--rv-fs-h3);font-weight:650;
+                      color:var(--rv-text)">{_title}</span>
+                <span class="pill-neut">{_card.get('n_test', 0)} held-out</span>
+              </div>
+              <div class="rv-grid" style="grid-template-columns:repeat(4,1fr);
+                   margin-bottom:12px">
+                <div><div class="rv-metric-label">ROC-AUC</div>
+                  <div class="rv-num" style="font-weight:600">{_card.get('roc_auc', 0):.3f}</div></div>
+                <div><div class="rv-metric-label">Precision</div>
+                  <div class="rv-num" style="font-weight:600">{_op.get('precision', 0):.3f}</div></div>
+                <div><div class="rv-metric-label">Recall</div>
+                  <div class="rv-num" style="font-weight:600">{_op.get('recall', 0):.3f}</div></div>
+                <div><div class="rv-metric-label">FPR</div>
+                  <div class="rv-num" style="font-weight:600">{_op.get('false_positive_rate', 0):.3f}</div></div>
+              </div>
+              <div class="rv-eyebrow" style="margin-bottom:6px">
+                Top features by permutation importance</div>
+              {_bars}
+            </div>
+            """)
+
+    st.html(
+        '<div class="rv-card" style="border-color:var(--rv-warn);'
+        'margin-top:var(--rv-space-2)">'
+        '<div class="rv-eyebrow" style="color:var(--rv-warn);margin-bottom:6px">'
+        'Read before trusting these numbers</div>'
+        '<div style="font-size:var(--rv-fs-small);color:var(--rv-text-muted);'
+        'line-height:1.6">Both models are trained on <strong>simulated</strong> '
+        'sign-ins, because no labelled corpus of real attempts exists for this '
+        'application. The scores above measure how well each model recovers its '
+        'own generator, not how it would perform against a live adversary. '
+        'Every real sign-in is logged in the schema the generator emits, so the '
+        'models can be retrained on genuine data once enough has accumulated: '
+        '<code>python -m auth.train</code>.</div></div>'
+    )
+
+
 # ==============================================================================
 # SIDEBAR AI COPILOT CHAT ASSISTANT & MODEL SELECTOR
 # ==============================================================================
 with st.sidebar:
+    # ── APPEARANCE ──
+    # Every control here maps to one token in theme.py. Changing any of them
+    # rebuilds the stylesheet on the next rerun; nothing needs a page reload.
+    with st.expander("Appearance", expanded=False):
+        # Each control seeds itself from the canonical dict and writes back
+        # through on_change, so a widget whose state Streamlit collected on a
+        # run where the sidebar did not render is rebuilt from the saved value
+        # rather than from the default.
+        def _select(label, name, options, labeller, **kw):
+            st.selectbox(
+                label, options=options, format_func=labeller,
+                index=options.index(pref(name)) if pref(name) in options else 0,
+                key=f"ui_{name}", on_change=_commit_pref, args=(name,), **kw
+            )
+
+        _pal_col, _acc_col = st.columns(2)
+        with _pal_col:
+            _select("Palette", "palette", list(theme_mod.PALETTES),
+                    lambda k: theme_mod.PALETTES[k].label)
+        with _acc_col:
+            _select("Accent", "accent", list(theme_mod.ACCENTS),
+                    lambda k: theme_mod.ACCENTS[k][0])
+
+        _den_col, _rad_col = st.columns(2)
+        with _den_col:
+            _select("Density", "density", list(theme_mod.DENSITIES),
+                    lambda k: theme_mod.DENSITIES[k].label,
+                    help="Spacing, control heights and table row heights.")
+        with _rad_col:
+            _select("Corners", "radius", list(theme_mod.RADII),
+                    lambda k: theme_mod.RADII[k][0])
+
+        _select("Motion", "motion", list(theme_mod.MOTION),
+                lambda k: theme_mod.MOTION[k][0],
+                help="Scales every animation in the app. Your operating "
+                     "system's reduce-motion setting overrides this regardless.")
+
+        _select("Gain / loss colours", "cvd", list(theme_mod.CVD_PAIRS),
+                lambda k: theme_mod.CVD_PAIRS[k][0],
+                help="Red/green is the hardest pair to distinguish with the "
+                     "most common form of colour blindness, and it carries the "
+                     "most important signal in the product.")
+
+        st.slider("Text size", min_value=0.85, max_value=1.3, step=0.05,
+                  value=float(pref("type_scale")),
+                  key="ui_type_scale", on_change=_commit_pref, args=("type_scale",))
+
+        _t1, _t2 = st.columns(2)
+        with _t1:
+            st.toggle("Glass", value=bool(pref("glass")), key="ui_glass",
+                      on_change=_commit_pref, args=("glass",),
+                      help="Translucent card surfaces.")
+            st.toggle("Grid lines", value=bool(pref("grid_lines")),
+                      key="ui_grid_lines", on_change=_commit_pref,
+                      args=("grid_lines",))
+        with _t2:
+            st.toggle("Effects", value=bool(pref("effects")), key="ui_effects",
+                      on_change=_commit_pref, args=("effects",),
+                      help="Cursor spotlight, click sparks, counters.")
+            st.toggle("Small caps", value=bool(pref("uppercase_labels")),
+                      key="ui_uppercase_labels", on_change=_commit_pref,
+                      args=("uppercase_labels",))
+
+        _save_col, _reset_col = st.columns(2)
+        with _save_col:
+            if st.button("Save", width="stretch",
+                         help="Store these settings on your account."):
+                _prefs = dict(CURRENT_USER.preferences or {})
+                _prefs["appearance"] = dict(st.session_state["appearance"])
+                auth_store.update_user(CURRENT_USER.username, preferences=_prefs)
+                st.success("Saved.", icon="✓")
+        with _reset_col:
+            if st.button("Reset", width="stretch"):
+                st.session_state["appearance"] = dict(APPEARANCE_DEFAULTS)
+                for _n in APPEARANCE_DEFAULTS:
+                    st.session_state.pop(f"ui_{_n}", None)
+                st.rerun()
+
     st.markdown("### 💬 AI Copilot Assistant")
     st.caption("Chat with an institutional AI market assistant powered by Featherless AI:")
     
