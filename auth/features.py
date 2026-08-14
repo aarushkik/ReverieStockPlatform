@@ -233,8 +233,17 @@ BOT_FEATURES: List[str] = [
     "no_interaction",          # submitted with no pointer and no keystrokes
 ]
 
+# Strings that only an automated client sends. This drives a *hard block* in
+# scoring.py, so it must contain nothing a real user could legitimately ship.
+#
+# Notably absent: "electron". Electron is a desktop application runtime, not an
+# automation tool - VS Code, Slack, Discord and many finance desktop clients
+# all embed it and put it in their user agent. Treating it as proof of
+# automation would permanently lock out every user on an Electron-based
+# browser or desktop wrapper, which is exactly the kind of silent, total
+# false positive that is hardest to diagnose from a support ticket.
 _HEADLESS_UA = re.compile(
-    r"headless|phantomjs|electron|slimerjs|puppeteer|playwright|selenium|"
+    r"headless|phantomjs|slimerjs|puppeteer|playwright|selenium|"
     r"webdriver|scrapy|python-requests|curl/|wget/|httpclient|okhttp|go-http-client",
     re.I,
 )
