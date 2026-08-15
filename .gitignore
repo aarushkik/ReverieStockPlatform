@@ -1,6 +1,11 @@
 .env
 __pycache__/
 *.pyc
+.venv/
+venv/
+
+# Account records and the sign-in audit log. Never commit these.
+auth/data/
 .DS_Store
 .devswarm-temp/
 .aider*

@@ -3,39 +3,39 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-05 22:14:22*
+*Report generated on: 2026-08-14 14:37:07*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Neutral** outlook with **72%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Bearish** outlook with **63%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Neutral (72% Confidence)
+### AAPL - Bearish (63% Confidence)
 
-**Last Close:** $311.00 (+0.52%)  
-**Technical Indicators:** 5-Day SMA: $313.23 | 20-Day SMA: $323.72 | 60-Day SMA: $308.01  
-**Volatility:** 37.5% (High)  
+**Last Close:** $305.93 (+0.22%)  
+**Technical Indicators:** 5-Day SMA: $305.32 | 20-Day SMA: $318.22 | 60-Day SMA: $308.94  
+**Volatility:** 34.0% (High)  
 **Sentiment Scored:** Neutral (Rating: 0.10)  
 
 **Agent Evaluation Summary:**  
-AAPL exhibits a neutral technical structure. The stock is consolidating without a strong directional catalyst in either technical indicators or recent news.
+AAPL exhibits a bearish technical structure. Prices are exhibiting a breakdown below key support levels with persistent downward momentum.
 
 #### 🟢 Key Bullish Catalysts
-- Stock exhibits price stabilization near recent support zones.
+- Price sits above its 5-day SMA of $305.32, indicating positive short-term trading pressure.
 - Price action is trading inside historical ranges, indicating market consolidation.
 
 #### 🔴 Key Bearish Risks & Warnings
-- Elevated price volatility (annualized at 37.5%) signals high potential for sudden, unpredictable price swings.
-- Recent short-term selling pressure is high with a decline of -8.04% over the last 5 trading days.
+- Elevated price volatility (annualized at 34.0%) signals high potential for sudden, unpredictable price swings.
+- Price is trading below major moving averages (20-day SMA of $318.22 and 60-day SMA of $308.94), confirming technical downward pressure.
 
 #### 📰 Recent Headlines Feed
-- **Aug 05, 2026** - [Price hikes on consumer electronics could be here to stay. Here's why.](https://finance.yahoo.com/video/price-hikes-consumer-electronics-could-195601126.html) (*Yahoo Finance Video*)
-- **Aug 06, 2026** - [Divorced at 60 With Half the Savings You Planned On. These 3 ETFs Help Rebuild a Retirement](https://finance.yahoo.com/markets/options/articles/divorced-60-half-savings-planned-040512086.html) (*24/7 Wall St.*)
-- **Aug 06, 2026** - [Apple Seeks Injunction Against OpenAI in Trade Secrets Lawsuit, Says It Faces 'Irreparable Harm'— Jim Cramer Says 'Gloves Off'](https://finance.yahoo.com/technology/ai/articles/apple-seeks-injunction-against-openai-023111508.html) (*Benzinga*)
-- **Aug 05, 2026** - [The Calm Surface of Alphabet Stock Hides a Turbulent Forecast](https://finance.yahoo.com/markets/options/articles/calm-surface-alphabet-stock-hides-203316161.html) (*Trefis*)
-- **Aug 05, 2026** - [SpaceX’s $1T Goal and 3 More Shockers From Musk on the Earnings Call](https://www.barrons.com/articles/spacex-stock-elon-musk-earnings-ai-89d68b40?siteid=yhoof2&yptr=yahoo) (*Barrons.com*)
+- **Aug 14, 2026** - [Databricks vs Snowflake: Analyst explains key differences in AI platforms](https://finance.yahoo.com/video/databricks-vs-snowflake-analyst-explains-210015938.html) (*Yahoo Finance Video*)
+- **Aug 14, 2026** - [Apple Stock Stalls as Jefferies Cuts Target to $263.66](https://finance.yahoo.com/markets/stocks/articles/apple-stock-stalls-jefferies-cuts-191714058.html) (*GuruFocus.com*)
+- **Aug 14, 2026** - [KeyBanc Has Message For Apple Stock Investors](https://finance.yahoo.com/markets/stocks/articles/keybanc-message-apple-stock-investors-181942735.html) (*GuruFocus.com*)
+- **Aug 14, 2026** - [Maryland Court Strikes Down Digital Ad Tax](https://finance.yahoo.com/media-advertising/articles/maryland-court-strikes-down-digital-181939248.html) (*MediaPost*)
+- **Aug 14, 2026** - [Vanguard Quietly Changed the Index Behind Your VUG ETF. Here’s What Happens to Your Portfolio](https://finance.yahoo.com/markets/stocks/articles/vanguard-quietly-changed-index-behind-181541021.html) (*24/7 Wall St.*)
 
 ---
 
