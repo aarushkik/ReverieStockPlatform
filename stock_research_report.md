@@ -3,28 +3,28 @@
 > [!IMPORTANT]
 > **EDUCATIONAL USE ONLY. This tool provides research notes and is NOT financial advice.**
 
-*Report generated on: 2026-08-14 14:37:07*
+*Report generated on: 2026-08-14 18:27:28*
 
 ## 📝 Plain-Language Portfolio Summary
 
 ### Portfolio Health Overview
-The research agent has evaluated **AAPL**. The stock is presenting a **Bearish** outlook with **63%** prediction confidence. This assessment is driven by neutral news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
+The research agent has evaluated **AAPL**. The stock is presenting a **Bearish** outlook with **61%** prediction confidence. This assessment is driven by bullish news headlines and a tech layout showing price sitting above/below moving averages. Please review the detailed technical breakdown and associated risks below before making paper-trading choices.
 
 ## 🔍 Detailed Stock Analysis
 
-### AAPL - Bearish (63% Confidence)
+### AAPL - Bearish (61% Confidence)
 
 **Last Close:** $305.93 (+0.22%)  
 **Technical Indicators:** 5-Day SMA: $305.32 | 20-Day SMA: $318.22 | 60-Day SMA: $308.94  
 **Volatility:** 34.0% (High)  
-**Sentiment Scored:** Neutral (Rating: 0.10)  
+**Sentiment Scored:** Bullish (Rating: 0.20)  
 
 **Agent Evaluation Summary:**  
 AAPL exhibits a bearish technical structure. Prices are exhibiting a breakdown below key support levels with persistent downward momentum.
 
 #### 🟢 Key Bullish Catalysts
+- Favorable news coverage with positive news sentiment of 0.20 across recent headlines.
 - Price sits above its 5-day SMA of $305.32, indicating positive short-term trading pressure.
-- Price action is trading inside historical ranges, indicating market consolidation.
 
 #### 🔴 Key Bearish Risks & Warnings
 - Elevated price volatility (annualized at 34.0%) signals high potential for sudden, unpredictable price swings.
@@ -32,10 +32,10 @@ AAPL exhibits a bearish technical structure. Prices are exhibiting a breakdown b
 
 #### 📰 Recent Headlines Feed
 - **Aug 14, 2026** - [Databricks vs Snowflake: Analyst explains key differences in AI platforms](https://finance.yahoo.com/video/databricks-vs-snowflake-analyst-explains-210015938.html) (*Yahoo Finance Video*)
-- **Aug 14, 2026** - [Apple Stock Stalls as Jefferies Cuts Target to $263.66](https://finance.yahoo.com/markets/stocks/articles/apple-stock-stalls-jefferies-cuts-191714058.html) (*GuruFocus.com*)
-- **Aug 14, 2026** - [KeyBanc Has Message For Apple Stock Investors](https://finance.yahoo.com/markets/stocks/articles/keybanc-message-apple-stock-investors-181942735.html) (*GuruFocus.com*)
-- **Aug 14, 2026** - [Maryland Court Strikes Down Digital Ad Tax](https://finance.yahoo.com/media-advertising/articles/maryland-court-strikes-down-digital-181939248.html) (*MediaPost*)
-- **Aug 14, 2026** - [Vanguard Quietly Changed the Index Behind Your VUG ETF. Here’s What Happens to Your Portfolio](https://finance.yahoo.com/markets/stocks/articles/vanguard-quietly-changed-index-behind-181541021.html) (*24/7 Wall St.*)
+- **Aug 15, 2026** - [U.S. Urges Apple Not to Buy Chinese Memory Chips](https://www.wsj.com/tech/apple-china-memory-chip-plan-57773a83?siteid=yhoof2&yptr=yahoo) (*The Wall Street Journal*)
+- **Aug 14, 2026** - [Berkshire Hathaway Makes Alphabet Its No. 3 Holding After 48M Share Buy](https://finance.yahoo.com/markets/stocks/articles/berkshire-hathaway-makes-alphabet-no-232853284.html) (*Stocktwits*)
+- **Aug 14, 2026** - [Maryland tax court voids digital ad tax, orders refunds to Apple, Google and Peacock TV](https://finance.yahoo.com/media-advertising/articles/maryland-tax-court-voids-digital-230625946.html) (*Associated Press*)
+- **Aug 14, 2026** - [All the Stocks Berkshire Hathaway Bought and Sold in Q2](https://finance.yahoo.com/markets/stocks/articles/stocks-berkshire-hathaway-bought-sold-230233796.html) (*Kiplinger*)
 
 ---
 
