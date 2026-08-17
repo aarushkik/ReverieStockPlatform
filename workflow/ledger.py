@@ -126,6 +126,17 @@ def _is_real_number(value: Any) -> bool:
     return not (math.isnan(value) or math.isinf(value))
 
 
+# Bookkeeping a tool attaches to its own output. These are numbers, but they are
+# not claims about the market, and leaving them in the table invites the model
+# to cite a unix timestamp as though it were a measurement.
+_METADATA_KEYS = ("fetched_at", "duration_ms", "timestamp", "as_of", "_at")
+
+
+def _is_metadata(label: str) -> bool:
+    tail = label.rsplit(".", 1)[-1].lower()
+    return any(tail == key or tail.endswith(key) for key in _METADATA_KEYS)
+
+
 class Ledger:
     """Collects facts from tool results and renders them for the model."""
 
@@ -148,7 +159,7 @@ class Ledger:
         added: List[Fact] = []
         base = prefix or result.tool
         for label, value in self._walk(result.value, base):
-            if not _is_real_number(value):
+            if not _is_real_number(value) or _is_metadata(label):
                 continue
             self._counter += 1
             fact = Fact(
@@ -283,6 +294,14 @@ _NUMBER = re.compile(
 _CITATION = re.compile(r"\[(f\d+)((?:\s*,\s*f\d+)*)\]")
 _MAGNITUDE = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
 
+# "1-year high", "52-week range", "14-day RSI", "20-day SMA". The number names a
+# window or a parameter; it is not an assertion about the market. Flagging these
+# produces constant false positives, which is how a warning system gets ignored.
+_WINDOW_WORD = re.compile(
+    r"^[-\s]?(year|month|week|day|quarter|hour|minute|session|bar|period)s?\b",
+    re.I,
+)
+
 
 def _parse_number(match: re.Match) -> Optional[float]:
     raw = match.group("num").replace(",", "")
@@ -315,6 +334,11 @@ def _is_ignorable(match: re.Match, text: str) -> bool:
     if (not match.group("cur") and not match.group("suffix")
             and full.isdigit() and 1900 <= value <= 2100):
         return True
+
+    # A window or parameter length: "1-year high", "14-day RSI".
+    if not match.group("cur") and not match.group("suffix"):
+        if _WINDOW_WORD.match(text[match.end():match.end() + 12]):
+            return True
 
     # Markdown list numbering / headings at line start: "1. ", "2) "
     line_start = text.rfind("\n", 0, match.start()) + 1
