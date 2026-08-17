@@ -10,3 +10,6 @@ google-genai>=0.1.0
 # Login-risk and bot-detection models (auth/)
 scikit-learn>=1.4.0
 joblib>=1.3.0
+
+# Development only
+pytest>=8.0.0
