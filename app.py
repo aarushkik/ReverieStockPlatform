@@ -19,6 +19,8 @@ from dashboard import generate_markdown_report
 # Design system, motion primitives and the authentication layer
 import theme as theme_mod
 import ui_effects as fx
+import workflow as wf
+from workflow import llm as wf_llm, render as wf_render
 from theme import rgba, value_color
 from auth import scoring as risk_scoring, store as auth_store, ui as auth_ui
 
@@ -361,6 +363,7 @@ _SESSION_DEFAULTS = {
     "portfolio_holdings": {},
     "portfolio_history": [],
     "trade_order_type": "BUY",
+    "wb_run": None,
 }
 for _key, _default in _SESSION_DEFAULTS.items():
     st.session_state.setdefault(_key, _default)
@@ -371,6 +374,7 @@ TABS = [
     ("NEWS", "News", "▦"),
     ("MARKETS", "Screener", "▩"),
     ("RESEARCH", "Research", "◉"),
+    ("WORKBENCH", "Workbench", "◆"),
     ("TRADE_DESK", "Simulator", "▧"),
     ("PATTERN_GUIDE", "Patterns", "◎"),
     ("SECURITY", "Security", "⬡"),
@@ -430,66 +434,69 @@ current_tab = st.session_state["current_tab"]
 # ==============================================================================
 # TOP NAVIGATION
 # ==============================================================================
-_nav_left, _nav_right = st.columns([5, 1.15], vertical_alignment="center")
+# Two rows: identity and context on top, the tab row on its own line below.
+# Sharing one line left roughly 120px per tab once a ninth was added, which
+# clipped every label to an ellipsis.
+_brand_col, _sym_col, _user_col = st.columns([4, 1.1, 0.9], vertical_alignment="center")
 
-with _nav_left:
-    _brand, *_tab_cols = st.columns([1.25] + [1] * len(TABS), vertical_alignment="center")
-    with _brand:
-        st.html(
-            '<div class="rv-row" style="gap:9px">'
-            '<span style="width:24px;height:24px;border-radius:6px;'
-            'background:var(--rv-accent-fill);color:var(--rv-on-accent);'
-            'display:flex;align-items:center;justify-content:center;'
-            'font-weight:800;font-size:13px">R</span>'
-            '<span style="font-weight:650;font-size:var(--rv-fs-body);'
-            'color:var(--rv-text);letter-spacing:-.01em">Reverie</span></div>'
-        )
-    for _col, (_tid, _label, _glyph) in zip(_tab_cols, TABS):
-        with _col:
-            st.button(
-                f"{_glyph}  {_label}",
-                key=f"nav_{_tid}",
-                on_click=go_to,
-                args=(_tid,),
-                type="primary" if current_tab == _tid else "secondary",
-                width="stretch",
+with _brand_col:
+    st.html(
+        '<div class="rv-row" style="gap:9px">'
+        '<span style="width:24px;height:24px;border-radius:6px;'
+        'background:var(--rv-accent-fill);color:var(--rv-on-accent);'
+        'display:flex;align-items:center;justify-content:center;'
+        'font-weight:800;font-size:13px">R</span>'
+        '<span style="font-weight:650;font-size:var(--rv-fs-body);'
+        'color:var(--rv-text);letter-spacing:-.01em">Reverie</span>'
+        '<span style="font-size:var(--rv-fs-small);color:var(--rv-text-faint);'
+        'margin-left:4px">terminal</span></div>'
+    )
+
+with _sym_col:
+    st.session_state.setdefault("nav_ticker_input", st.session_state["active_ticker"])
+    _typed = st.text_input(
+        "Symbol",
+        key="nav_ticker_input",
+        label_visibility="collapsed",
+        placeholder="Symbol",
+    )
+    if _typed and _typed.strip().upper() != st.session_state["active_ticker"]:
+        st.session_state["active_ticker"] = _typed.strip().upper()
+
+with _user_col:
+    with st.popover(f"\u25d0  {CURRENT_USER.display_name.split()[0][:9]}", width="stretch"):
+        st.markdown(f"**{CURRENT_USER.display_name}**")
+        st.caption(f"@{CURRENT_USER.username}")
+        _risk = st.session_state.get(auth_ui.SESSION_RISK) or {}
+        if _risk:
+            _band_color = {
+                "low": "var(--rv-pos)",
+                "elevated": "var(--rv-warn)",
+                "high": "var(--rv-neg)",
+            }.get(_risk.get("band", "low"), "var(--rv-text-muted)")
+            st.html(
+                f'<div class="rv-eyebrow" style="margin-top:6px">This session</div>'
+                f'<div style="font-size:var(--rv-fs-small);color:var(--rv-text-muted);'
+                f'line-height:1.5">Risk '
+                f'<strong style="color:{_band_color}">'
+                f'{int(_risk.get("score", 0) * 100)}%</strong>'
+                f' \u00b7 {_risk.get("location") or "Unknown location"}</div>'
             )
+        st.divider()
+        if st.button("Sign out", key="sign_out_btn", width="stretch"):
+            auth_ui.sign_out()
+            st.rerun()
 
-with _nav_right:
-    _ticker_col, _user_col = st.columns([1.6, 1], vertical_alignment="center")
-    with _ticker_col:
-        st.session_state.setdefault("nav_ticker_input", st.session_state["active_ticker"])
-        _typed = st.text_input(
-            "Symbol",
-            key="nav_ticker_input",
-            label_visibility="collapsed",
-            placeholder="Symbol",
+for _col, (_tid, _label, _glyph) in zip(st.columns(len(TABS)), TABS):
+    with _col:
+        _col.button(
+            f"{_glyph} {_label}",
+            key=f"nav_{_tid}",
+            on_click=go_to,
+            args=(_tid,),
+            type="primary" if current_tab == _tid else "secondary",
+            width="stretch",
         )
-        if _typed and _typed.strip().upper() != st.session_state["active_ticker"]:
-            st.session_state["active_ticker"] = _typed.strip().upper()
-    with _user_col:
-        with st.popover(f"◐  {CURRENT_USER.display_name.split()[0][:9]}", width="stretch"):
-            st.markdown(f"**{CURRENT_USER.display_name}**")
-            st.caption(f"@{CURRENT_USER.username}")
-            _risk = st.session_state.get(auth_ui.SESSION_RISK) or {}
-            if _risk:
-                _band_color = {
-                    "low": "var(--rv-pos)",
-                    "elevated": "var(--rv-warn)",
-                    "high": "var(--rv-neg)",
-                }.get(_risk.get("band", "low"), "var(--rv-text-muted)")
-                st.html(
-                    f'<div class="rv-eyebrow" style="margin-top:6px">This session</div>'
-                    f'<div style="font-size:var(--rv-fs-small);color:var(--rv-text-muted);'
-                    f'line-height:1.5">Risk '
-                    f'<strong style="color:{_band_color}">'
-                    f'{int(_risk.get("score", 0) * 100)}%</strong>'
-                    f' · {_risk.get("location") or "Unknown location"}</div>'
-                )
-            st.divider()
-            if st.button("Sign out", key="sign_out_btn", width="stretch"):
-                auth_ui.sign_out()
-                st.rerun()
 
 st.html('<div style="height:1px;background:var(--rv-border);margin:2px 0 10px"></div>')
 
@@ -2988,6 +2995,195 @@ elif current_tab == "PATTERN_GUIDE":
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
+# TAB: WORKBENCH — verifiable AI research workflows
+# ──────────────────────────────────────────────────────────────────────────────
+elif current_tab == "WORKBENCH":
+    st.html(fx.section_header(
+        "Workbench",
+        "AI research where every figure is traceable to the call that measured it"))
+
+    _wb_left, _wb_main = st.columns([1, 2.6], gap="medium")
+
+    # ── CONTROLS ──
+    with _wb_left:
+        _templates = wf.list_templates()
+        _keys = [t.key for t in _templates]
+        _labels = {t.key: t.name for t in _templates}
+
+        _chosen_key = st.selectbox(
+            "Workflow", options=_keys, format_func=lambda k: _labels[k],
+            key="wb_template")
+        _template = wf.get_template(_chosen_key)
+        st.caption(_template.description)
+
+        _inputs = {}
+        if "symbol" in _template.inputs:
+            _inputs["symbol"] = st.text_input(
+                "Symbol", value=st.session_state["active_ticker"],
+                key="wb_symbol").strip().upper()
+        if "thesis" in _template.inputs:
+            _inputs["thesis"] = st.text_area(
+                "Your thesis", key="wb_thesis", height=90,
+                placeholder="e.g. NVDA's datacenter demand is durable through 2027")
+        if "positions" in _template.inputs:
+            _inputs["positions"] = {
+                "cash": st.session_state["portfolio_cash"],
+                "holdings": st.session_state["portfolio_holdings"],
+            }
+            _inputs["symbols"] = sorted(st.session_state["portfolio_holdings"]) or ["AAPL"]
+
+        # Model availability is resolved before the run, not discovered at the
+        # synthesis step, so the button can say what will actually happen.
+        try:
+            _providers = wf_llm.available_providers()
+        except Exception:
+            _providers = []
+
+        if _providers:
+            _provider_key = st.selectbox(
+                "Model", options=[p.key for p in _providers],
+                format_func=lambda k: wf_llm.PROVIDERS[k].label,
+                key="wb_provider")
+            st.html(fx.pulse_dot(f"{len(_providers)} model(s) available", "pos"))
+        else:
+            _provider_key = None
+            st.warning(
+                "No language model configured. The workflow will still run and "
+                "collect facts — it just won't write the memo. Set one of "
+                "`FEATHERLESS_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, "
+                "`DEEPSEEK_API_KEY` or `GEMINI_API_KEY`.",
+                icon=":material/info:")
+
+        _run_clicked = st.button("Run workflow", type="primary", width="stretch")
+
+        if st.session_state.get("wb_run") is not None:
+            if st.button("Clear", width="stretch"):
+                st.session_state["wb_run"] = None
+                st.rerun()
+
+    # ── EXECUTE ──
+    if _run_clicked:
+        _missing = [k for k in _template.inputs
+                    if k not in ("symbols",) and not _inputs.get(k)]
+        if _missing:
+            st.error(f"Missing input: {', '.join(_missing)}")
+        else:
+            _completer = None
+            if _provider_key:
+                try:
+                    _completer = wf_llm.make_completer(_provider_key)
+                except wf_llm.NoModelConfigured as exc:
+                    st.warning(str(exc))
+
+            with st.status("Running workflow…", expanded=True) as _status:
+                def _report(kind, step_id, payload):
+                    if kind == "step_started":
+                        _status.write(f"▸ {step_id}")
+                    elif kind == "step_ok":
+                        _status.write(f"✓ {step_id} · {payload.duration_ms:.0f} ms")
+                    elif kind == "step_failed":
+                        _status.write(f"✗ {step_id} · {payload.error}")
+                    elif kind == "step_skipped":
+                        _status.write(f"– {step_id} skipped")
+                    elif kind == "synthesis_started":
+                        _status.write("▸ writing memo")
+
+                _run = wf.execute(
+                    _template, _inputs, llm=_completer,
+                    model=(_provider_key or ""), on_event=_report)
+
+                _status.update(
+                    label=("Workflow complete" if _run.status == "ok"
+                           else "Workflow halted"),
+                    state=("complete" if _run.status == "ok" else "error"),
+                    expanded=False)
+
+            st.session_state["wb_run"] = _run
+
+    # ── RESULTS ──
+    _run = st.session_state.get("wb_run")
+
+    with _wb_main:
+        if _run is None:
+            st.html(fx.empty_state(
+                "No run yet", "◆",
+                "Pick a workflow and run it. Every figure in the result will be "
+                "traceable to the tool call that produced it."))
+            st.html(wf_render.render_dag_html(_template, None))
+        else:
+            # Pipeline
+            st.html(fx.section_header(
+                "Pipeline",
+                f"{_run.duration_ms:.0f} ms · {len(_run.ledger)} facts measured"))
+            st.html(wf_render.render_dag_html(wf.get_template(_run.workflow_key), _run))
+
+            # A halted run is the honest outcome, presented as such.
+            if _run.status == "failed":
+                st.html(
+                    '<div class="rv-card" style="border-color:var(--rv-neg);'
+                    'margin-top:var(--rv-space-3)">'
+                    '<div class="rv-row" style="gap:9px;margin-bottom:8px">'
+                    '<span class="rv-pulse" style="background:var(--rv-neg-fill)"></span>'
+                    '<span style="font-size:var(--rv-fs-h3);font-weight:650;'
+                    'color:var(--rv-text)">No memo was written</span></div>'
+                    '<div style="font-size:var(--rv-fs-small);'
+                    'color:var(--rv-text-muted);line-height:1.6">'
+                    f'{_run.error}<br><br>A required step did not complete, so '
+                    'the workflow stopped rather than letting the model write '
+                    'around the gap. Any facts that were measured are listed '
+                    'below and can still be inspected.</div></div>')
+
+            elif _run.memo:
+                _badge = wf_render.render_verification_badge(_run.verification)
+                st.html(fx.section_header("Memo", note=""))
+                st.html(
+                    f'<div class="rv-card">'
+                    f'<div class="rv-row rv-row--between" '
+                    f'style="margin-bottom:var(--rv-space-3)">'
+                    f'<span class="rv-eyebrow">Generated by '
+                    f'{_run.model or "model"}</span>{_badge}</div>'
+                    + wf_render.render_memo_html(
+                        _run.memo, _run.ledger, _run.verification)
+                    + "</div>")
+
+                _flagged = _run.verification.flagged if _run.verification else []
+                if _flagged:
+                    _items = "".join(
+                        f"<li><code>{c.text}</code> — {c.detail}</li>"
+                        for c in _flagged)
+                    st.html(
+                        '<div class="rv-card" style="border-color:var(--rv-warn);'
+                        'margin-top:var(--rv-space-2)">'
+                        '<div class="rv-eyebrow" style="color:var(--rv-warn);'
+                        'margin-bottom:6px">'
+                        f'{len(_flagged)} figure(s) could not be verified</div>'
+                        '<ul style="margin:0 0 0 18px;padding:0;'
+                        'font-size:var(--rv-fs-small);color:var(--rv-text-muted);'
+                        f'line-height:1.6">{_items}</ul></div>')
+            else:
+                st.html(
+                    '<div class="rv-card" style="border-color:var(--rv-warn);'
+                    'margin-top:var(--rv-space-3)">'
+                    '<div class="rv-eyebrow" style="color:var(--rv-warn);'
+                    'margin-bottom:6px">Facts collected, no memo</div>'
+                    '<div style="font-size:var(--rv-fs-small);'
+                    'color:var(--rv-text-muted);line-height:1.6">'
+                    f'{_run.error or "No language model was configured."}</div></div>')
+
+            # Evidence is always shown, whatever happened above.
+            st.html(fx.section_header(
+                "Evidence", f"{len(_run.ledger)} measurements"))
+            st.html(wf_render.render_evidence_html(_run.ledger))
+
+            with st.expander("Run record"):
+                st.caption(
+                    "The complete record: inputs, every tool call with its "
+                    "timing and source, the fact ledger, and the verification "
+                    "report. This is what makes a run reproducible.")
+                st.json(_run.to_json(), expanded=False)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # TAB 8: SECURITY CONSOLE
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "SECURITY":
@@ -3229,7 +3425,7 @@ with st.sidebar:
                 _prefs = dict(CURRENT_USER.preferences or {})
                 _prefs["appearance"] = dict(st.session_state["appearance"])
                 auth_store.update_user(CURRENT_USER.username, preferences=_prefs)
-                st.success("Saved.", icon="✓")
+                st.success("Saved.", icon=":material/check:")
         with _reset_col:
             if st.button("Reset", width="stretch"):
                 st.session_state["appearance"] = dict(APPEARANCE_DEFAULTS)

@@ -967,7 +967,10 @@ def build_css(theme: Theme) -> str:
         font-size: var(--rv-fs-small) !important;
         font-weight: 600 !important;
         min-height: var(--rv-control-h) !important;
-        padding: 0 var(--rv-space-3) !important;
+        /* Tight horizontal padding: with nine nav tabs the label fits the
+           column but 2x15px of padding did not, so every label ellipsised
+           despite having room for the text. */
+        padding: 0 var(--rv-space-2) !important;
         /* Streamlit lets button labels wrap, which in a narrow nav column
            breaks them mid-word ("Simula / tor"). Clip instead of wrapping. */
         white-space: nowrap !important;
@@ -1219,6 +1222,137 @@ def build_css(theme: Theme) -> str:
     .rv-spacer {{ flex: 1; }}
     .rv-truncate {{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
     .rv-scroll-y {{ overflow-y: auto; }}
+
+    /* =====================================================================
+       WORKBENCH
+       Verified figures are marked quietly; unverified ones are marked loudly.
+       Both are shown - the reader is told which numbers the system could
+       stand behind, rather than having the difference hidden.
+       ===================================================================== */
+    .rv-memo {{
+        font-size: var(--rv-fs-body);
+        line-height: 1.75;
+        color: var(--rv-text);
+    }}
+    .rv-claim {{ position: relative; white-space: nowrap; }}
+    .rv-claim--ok {{
+        font-family: var(--rv-mono);
+        font-variant-numeric: tabular-nums;
+        border-bottom: 1px dotted var(--rv-pos);
+        cursor: help;
+    }}
+    .rv-claim--bad {{
+        font-family: var(--rv-mono);
+        font-variant-numeric: tabular-nums;
+        background: color-mix(in srgb, var(--rv-claim-color) 14%, transparent);
+        border-bottom: 1px solid var(--rv-claim-color);
+        border-radius: 2px;
+        padding: 0 3px;
+        cursor: help;
+    }}
+    .rv-claim-mark {{
+        font-family: var(--rv-font);
+        font-size: var(--rv-fs-micro);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--rv-claim-color);
+        margin-left: 5px;
+        vertical-align: 1px;
+    }}
+    .rv-cite {{
+        display: inline-block;
+        font-family: var(--rv-mono);
+        font-size: var(--rv-fs-micro);
+        font-weight: 600;
+        color: var(--rv-accent);
+        background: var(--rv-accent-soft);
+        border-radius: var(--rv-radius-pill);
+        padding: 1px 6px;
+        margin: 0 2px;
+        cursor: help;
+        vertical-align: 1px;
+        white-space: pre-line;
+    }}
+    .rv-cite--missing {{
+        color: var(--rv-neg);
+        background: var(--rv-neg-soft);
+        text-decoration: line-through;
+    }}
+
+    /* DAG */
+    .rv-dag {{
+        display: flex;
+        gap: var(--rv-space-3);
+        align-items: flex-start;
+        overflow-x: auto;
+        padding-bottom: var(--rv-space-2);
+    }}
+    .rv-dag-level {{
+        display: flex;
+        flex-direction: column;
+        gap: var(--rv-space-2);
+        min-width: 190px;
+        flex: 1;
+    }}
+    .rv-dag-level-label {{
+        font-size: var(--rv-fs-micro);
+        font-weight: 600;
+        text-transform: var(--rv-label-transform);
+        letter-spacing: var(--rv-label-spacing);
+        color: var(--rv-text-faint);
+    }}
+    .rv-step {{
+        background: var(--rv-surface);
+        border: 1px solid var(--rv-border);
+        border-left: 3px solid var(--rv-step-tone, var(--rv-border-hi));
+        border-radius: var(--rv-radius-sm);
+        padding: var(--rv-space-2);
+        transition: border-color var(--rv-dur) var(--rv-ease);
+    }}
+    .rv-step-head {{
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+    }}
+    .rv-step-dot {{
+        width: 7px; height: 7px;
+        border-radius: 50%;
+        background: var(--rv-step-tone, var(--rv-border-hi));
+        flex: none;
+    }}
+    .rv-step-name {{
+        font-size: var(--rv-fs-small);
+        font-weight: 600;
+        color: var(--rv-text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }}
+    .rv-step-optional {{
+        font-size: var(--rv-fs-micro);
+        color: var(--rv-text-faint);
+        border: 1px solid var(--rv-border);
+        border-radius: var(--rv-radius-pill);
+        padding: 0 5px;
+        flex: none;
+    }}
+    .rv-step-meta {{
+        font-family: var(--rv-mono);
+        font-size: var(--rv-fs-micro);
+        color: var(--rv-text-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }}
+    .rv-step-status {{
+        font-size: var(--rv-fs-micro);
+        font-weight: 600;
+        text-transform: var(--rv-label-transform);
+        letter-spacing: var(--rv-label-spacing);
+        color: var(--rv-step-tone, var(--rv-text-faint));
+        margin-top: 3px;
+    }}
 
     /* Empty states should look intentional rather than broken. */
     .rv-empty {{
