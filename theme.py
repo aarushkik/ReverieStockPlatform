@@ -1354,6 +1354,110 @@ def build_css(theme: Theme) -> str:
         margin-top: 3px;
     }}
 
+    /* =====================================================================
+       SIDEBAR COPILOT
+       These class names come from Raaghav's branch, whose styling lived in a
+       hardcoded stylesheet the token system replaced. Reimplemented on tokens
+       so the panel follows the active palette. Without this the sidebar logo
+       renders at its intrinsic SVG size and swallows the panel.
+       ===================================================================== */
+    .ai-side-shell {{
+        background: var(--rv-surface);
+        border: 1px solid var(--rv-border);
+        border-radius: var(--rv-radius);
+        padding: var(--rv-card-pad);
+        margin-bottom: var(--rv-space-2);
+    }}
+    .ai-side-head {{
+        display: flex;
+        align-items: center;
+        gap: var(--rv-space-2);
+        margin-bottom: var(--rv-space-2);
+    }}
+    .ai-side-logo {{
+        width: 30px;
+        height: 30px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--rv-surface-alt);
+        border: 1px solid var(--rv-border);
+        border-radius: var(--rv-radius-sm);
+        padding: 5px;
+    }}
+    .ai-side-logo svg {{ width: 100%; height: 100%; display: block; }}
+    .ai-side-title {{
+        font-size: var(--rv-fs-body);
+        font-weight: 650;
+        color: var(--rv-text);
+        line-height: 1.2;
+    }}
+    .ai-side-sub {{
+        font-size: var(--rv-fs-micro);
+        color: var(--rv-text-muted);
+    }}
+    .ai-side-status {{
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: var(--rv-fs-micro);
+        font-weight: 600;
+        text-transform: var(--rv-label-transform);
+        letter-spacing: var(--rv-label-spacing);
+        color: var(--rv-pos);
+        flex: none;
+    }}
+    .ai-side-status i {{
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--rv-pos-fill);
+        display: inline-block;
+    }}
+    .ai-side-chiprow {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: var(--rv-space-2);
+    }}
+    .ai-side-chip {{
+        font-size: var(--rv-fs-micro);
+        font-weight: 600;
+        color: var(--rv-text-muted);
+        background: var(--rv-surface-alt);
+        border: 1px solid var(--rv-border);
+        border-radius: var(--rv-radius-pill);
+        padding: 2px 8px;
+    }}
+    .ai-side-ticker {{
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--rv-space-2);
+        padding-top: var(--rv-space-2);
+        border-top: 1px solid var(--rv-hairline);
+    }}
+    .ai-side-ticker span {{
+        font-size: var(--rv-fs-micro);
+        text-transform: var(--rv-label-transform);
+        letter-spacing: var(--rv-label-spacing);
+        color: var(--rv-text-faint);
+    }}
+    .ai-side-ticker strong {{
+        font-family: var(--rv-mono);
+        font-size: var(--rv-fs-body);
+        font-weight: 650;
+        color: var(--rv-accent);
+    }}
+    .ai-chat-scroll {{
+        max-height: 46vh;
+        overflow-y: auto;
+        padding-right: 4px;
+    }}
+    .ai-clear-wrap {{ margin-top: var(--rv-space-2); }}
+
     /* Empty states should look intentional rather than broken. */
     .rv-empty {{
         display: flex;

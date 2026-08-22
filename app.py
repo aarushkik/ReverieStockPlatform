@@ -9,6 +9,7 @@ import yfinance as yf
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 import urllib.request
+import requests
 
 # Import backend engine
 from data_fetcher import get_stock_data, load_env_file
@@ -430,8 +431,10 @@ if pref("effects"):
         go_to(_click.get("dest") or "RESEARCH", ticker=_click.get("symbol", ""))
         st.rerun()
 
-# Guard against stale AI_COPILOT session values
-if st.session_state.get("current_tab") not in _VALID_TABS:
+# A tab id persisted by an older build (or a hand-edited query param) must not
+# leave the app on a branch that no longer exists. _TAB_IDS is derived from TABS,
+# so this cannot drift the way a hand-maintained set does.
+if st.session_state.get("current_tab") not in _TAB_IDS:
     st.session_state["current_tab"] = "MARKET_HOME"
 
 current_tab = st.session_state["current_tab"]
@@ -3588,6 +3591,16 @@ with st.sidebar:
     # was never written anywhere in the app, so the copilot always believed the
     # user was looking at AAPL regardless of what was on screen.
     context_ticker = (st.session_state.get("active_ticker") or "AAPL").strip().upper()
+
+    # Sidebar mark, from Raaghav's branch. Recoloured onto theme tokens so it
+    # follows the active palette instead of pinning two hardcoded hexes.
+    _side_logo = (
+        '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">'
+        '<path d="M4 16.5L9.2 11.2L12.8 14.8L20 7.5" stroke="var(--rv-accent-fill)" '
+        'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M15.5 7.5H20V12" stroke="var(--rv-info)" stroke-width="2.2" '
+        'stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    )
 
     # ── APPEARANCE ──
     # Every control here maps to one token in theme.py. Changing any of them
