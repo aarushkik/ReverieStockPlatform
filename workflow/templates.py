@@ -191,12 +191,48 @@ PORTFOLIO_BRIEF = Workflow(
 )
 
 
+QUANT_OUTLOOK = Workflow(
+    key="quant_outlook",
+    name="Quantitative outlook",
+    description=(
+        "Train a direction classifier on the symbol's own history, report its "
+        "backtested accuracy, and read it against the current technical picture."
+    ),
+    inputs=("symbol",),
+    steps=(
+        Step(id="prices", tool="prices",
+             args={"symbol": "$input.symbol", "period": "2y"},
+             label="Fetch 2y price history"),
+        Step(id="indicators", tool="indicators",
+             args={"symbol": "$input.symbol", "history": "$artifact:prices"},
+             depends_on=("prices",), label="Compute indicators"),
+        Step(id="forecast", tool="forecast",
+             args={"symbol": "$input.symbol", "history": "$artifact:prices"},
+             depends_on=("prices",), label="Train direction model"),
+    ),
+    synthesis=Synthesis(
+        prompt=(
+            "Report what the trained model found. Lead with its backtested "
+            "accuracy and the sample sizes it was trained and tested on, "
+            "because those determine how much weight the direction call "
+            "deserves. State plainly if the accuracy is close to 50% — that "
+            "means the model has found no reliable edge, and saying so is the "
+            "correct outcome, not a failure to report. Then describe how the "
+            "signal sits against the current indicators. Do not translate any "
+            "of this into a recommendation."
+        ),
+        label="Report the model's findings",
+    ),
+)
+
+
 TEMPLATES: Dict[str, Workflow] = {
     w.key: w for w in (
         DUE_DILIGENCE,
         WHY_DID_IT_MOVE,
         WHAT_WOULD_MAKE_ME_WRONG,
         PORTFOLIO_BRIEF,
+        QUANT_OUTLOOK,
     )
 }
 

@@ -23,6 +23,7 @@ import pandas as pd
 
 import indicators
 import marketdata as md
+import predictive_model
 from analyzer import analyze_sentiment
 
 from .tools import tool
@@ -256,4 +257,52 @@ def _portfolio(positions: Dict[str, Any]) -> Dict[str, Any]:
         "cash": cash,
         "symbols": sorted(holdings),
         "holdings": holdings,
+    }
+
+
+@tool(
+    "forecast",
+    "Train a price-direction classifier on the symbol's own history and report "
+    "its backtested accuracy.",
+    {
+        "symbol": {"type": "string", "required": True, "description": "Ticker symbol"},
+        "history": {"type": "object", "required": False,
+                    "description": "Price history from a prices step"},
+    },
+    source="predictive_model",
+)
+def _forecast(symbol: str, history: Any = None) -> Dict[str, Any]:
+    """Wraps predictive_model.train_predictive_model.
+
+    Raises when the model could not be trained, so the workflow records a
+    failed step rather than a neutral-looking prediction. That matters more
+    here than anywhere else in the registry: a fabricated forecast is the one
+    output a reader is most likely to act on, and the *only* honest thing to
+    say about an untrained model is that it was not trained.
+
+    Note what does and does not become a citable fact. The backtested accuracy
+    and sample counts are real measurements and belong in the ledger. The
+    forward price path is a projection, not a measurement, so it is deliberately
+    returned as a length rather than as a series of prices the model could cite
+    as though they had been observed.
+    """
+    if history is None:
+        history = md.fetch_price_history([symbol], period="2y")
+    frame = _ohlcv(history, symbol).dropna()
+
+    result = predictive_model.train_predictive_model(symbol.upper(), frame)
+    if not result.get("success"):
+        raise RuntimeError(
+            f"model not trained: {result.get('reason', 'unknown reason')}")
+
+    return {
+        "symbol": result["symbol"],
+        "direction": result["prediction"],
+        "bullish_probability_pct": result["bullish_probability"],
+        "confidence_pct": result["confidence_pct"],
+        "backtest_accuracy_pct": result["backtest_accuracy_pct"],
+        "samples_trained": result["samples_trained"],
+        "samples_tested": result["samples_tested"],
+        "top_features": [f.get("feature") for f in result.get("feature_importances", [])[:5]],
+        "forecast_days": len(result.get("forecast", [])),
     }

@@ -108,11 +108,11 @@ def train_predictive_model(symbol: str, df: pd.DataFrame) -> dict:
     """
     feature_df = extract_ml_features(df)
     if feature_df.empty or len(feature_df.dropna(subset=FEATURE_COLUMNS)) < 50:
-        return build_fallback_prediction(symbol, df)
+        return build_fallback_prediction(symbol, df, 'insufficient feature rows')
 
     clean_df = feature_df.dropna(subset=FEATURE_COLUMNS + ['target_dir_5d'])
     if len(clean_df) < 40:
-        return build_fallback_prediction(symbol, df)
+        return build_fallback_prediction(symbol, df, 'fewer than 40 labelled samples')
 
     X = clean_df[FEATURE_COLUMNS]
     y = clean_df['target_dir_5d']
@@ -183,9 +183,9 @@ def train_predictive_model(symbol: str, df: pd.DataFrame) -> dict:
             }
         except Exception as e:
             logger.warning(f"Failed ML model training for {symbol}: {e}")
-            return build_fallback_prediction(symbol, df)
+            return build_fallback_prediction(symbol, df, f'training failed: {e}')
     else:
-        return build_fallback_prediction(symbol, df)
+        return build_fallback_prediction(symbol, df, 'scikit-learn unavailable')
 
 
 def generate_forward_forecast(df: pd.DataFrame, bullish_prob: float, days_ahead: int = 30) -> pd.DataFrame:
@@ -235,26 +235,32 @@ def generate_forward_forecast(df: pd.DataFrame, bullish_prob: float, days_ahead:
     return pd.DataFrame(future_records)
 
 
-def build_fallback_prediction(symbol: str, df: pd.DataFrame) -> dict:
-    """Fallback heuristic forecast when insufficient data or ML training is unavailable."""
-    last_close = float(df['Close'].iloc[-1]) if not df.empty and 'Close' in df.columns else 100.0
-    forecast_df = generate_forward_forecast(df, 0.52, 30) if not df.empty else pd.DataFrame()
+def build_fallback_prediction(symbol: str, df: pd.DataFrame, reason: str = "") -> dict:
+    """Returned when the model could not be trained. Reports that, and nothing else.
+
+    This previously returned success=True alongside a full set of invented
+    metrics: a bullish probability of 52.0%, a confidence of 60%, a
+    *backtest accuracy of 58.5%* that was never computed, and five hardcoded
+    feature importances (rsi_14 22.4, dist_sma20 18.2, ...) presented exactly
+    like measured ones. A user reading the model card saw an evaluated model
+    where none had been trained; only an is_ml_trained flag distinguished them.
+
+    A prediction that could not be made is not a neutral prediction.
+    """
     return {
-        "success": True,
+        "success": False,
         "symbol": symbol,
-        "prediction": "Neutral",
-        "bullish_probability": 52.0,
-        "confidence_pct": 60,
-        "backtest_accuracy_pct": 58.5,
-        "samples_trained": len(df),
+        "reason": reason or (
+            "not enough clean history to train "
+            f"(need ~50 usable rows, have {len(df) if df is not None else 0})"
+        ),
+        "prediction": None,
+        "bullish_probability": None,
+        "confidence_pct": None,
+        "backtest_accuracy_pct": None,
+        "samples_trained": 0,
         "samples_tested": 0,
-        "feature_importances": [
-            {"feature": "rsi_14", "importance": 22.4},
-            {"feature": "dist_sma20", "importance": 18.2},
-            {"feature": "volatility_20d", "importance": 15.6},
-            {"feature": "macd_diff", "importance": 14.1},
-            {"feature": "ret_5d", "importance": 12.8}
-        ],
-        "forecast": forecast_df.to_dict(orient="records") if not forecast_df.empty else [],
-        "is_ml_trained": False
+        "feature_importances": [],
+        "forecast": [],
+        "is_ml_trained": False,
     }
