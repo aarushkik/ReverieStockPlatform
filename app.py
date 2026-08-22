@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 import urllib.request
 
 # Import backend engine
-from data_fetcher import get_stock_data
+from data_fetcher import get_stock_data, load_env_file
 from analyzer import run_analysis, analyze_sentiment
 from agent_logic import evaluate_ticker, chat_with_ai_copilot
 from dashboard import generate_markdown_report
@@ -23,6 +23,7 @@ import workflow as wf
 from workflow import llm as wf_llm, render as wf_render
 from theme import rgba, value_color
 from auth import scoring as risk_scoring, store as auth_store, ui as auth_ui
+
 
 # Custom React component for Order Entry using CCv2
 _REACT_ORDER_DESK = st.components.v2.component(
@@ -429,6 +430,10 @@ if pref("effects"):
         go_to(_click.get("dest") or "RESEARCH", ticker=_click.get("symbol", ""))
         st.rerun()
 
+# Guard against stale AI_COPILOT session values
+if st.session_state.get("current_tab") not in _VALID_TABS:
+    st.session_state["current_tab"] = "MARKET_HOME"
+
 current_tab = st.session_state["current_tab"]
 
 # ==============================================================================
@@ -810,56 +815,104 @@ def get_market_scanners() -> dict:
             })
 
     rdf = pd.DataFrame(records)
-    gainers = rdf.sort_values("change", ascending=False).head(10).to_dict("records")
-    losers = rdf.sort_values("change", ascending=True).head(10).to_dict("records")
-    # High Volume Leaders: sort by total volume descending
-    unusual = rdf.sort_values("volume", ascending=False).head(10).to_dict("records")
-    new_hi = rdf[rdf["is_hi"]].to_dict("records")
-    new_lo = rdf[rdf["is_lo"]].to_dict("records")
-    return {"gainers": gainers, "losers": losers, "unusual_vol": unusual, "new_hi": new_hi, "new_lo": new_lo}
+    gainers = rdf.sort_values("change", ascending=False).head(8).to_dict("records")
+    losers = rdf.sort_values("change", ascending=True).head(8).to_dict("records")
+    trending = rdf.sort_values("vol_ratio", ascending=False).head(8).to_dict("records")
+    unusual = rdf.sort_values("volume", ascending=False).head(8).to_dict("records")
+    
+    # 52-Week Highs / Gainers
+    hi_df = rdf[rdf["is_hi"]]
+    if len(hi_df) < 4:
+        hi_df = rdf.sort_values("change", ascending=False).head(8)
+    new_hi = hi_df.head(8).to_dict("records")
+
+    # 52-Week Lows / Losers
+    lo_df = rdf[rdf["is_lo"]]
+    if len(lo_df) < 4:
+        lo_df = rdf.sort_values("change", ascending=True).head(8)
+    new_lo = lo_df.head(8).to_dict("records")
+
+    return {
+        "gainers": gainers,
+        "losers": losers,
+        "trending": trending,
+        "unusual_vol": unusual,
+        "new_hi": new_hi,
+        "new_lo": new_lo
+    }
+
 
 @st.cache_data(ttl=300)
 def get_futures_commodities() -> list:
-    symbols = ["ES=F", "YM=F", "NQ=F", "GC=F", "CL=F", "SI=F", "^TNX"]
+    symbols = [
+        "ES=F", "NQ=F", "YM=F", "RTY=F",
+        "GC=F", "CL=F", "SI=F", "NG=F", "HG=F", "ZC=F", "ZW=F",
+        "^TNX", "^VIX", "^IRX",
+        "BTC-USD", "ETH-USD", "SOL-USD",
+        "EURUSD=X", "JPY=X"
+    ]
     names = {
         "ES=F": "S&P 500 Futures",
-        "YM=F": "Dow Futures",
         "NQ=F": "Nasdaq Futures",
-        "GC=F": "Gold",
-        "CL=F": "Crude Oil",
-        "SI=F": "Silver",
-        "^TNX": "10-Year Yield"
+        "YM=F": "Dow Futures",
+        "RTY=F": "Russell 2000 Futures",
+        "GC=F": "Gold Futures",
+        "CL=F": "Crude Oil WTI",
+        "SI=F": "Silver Futures",
+        "NG=F": "Natural Gas",
+        "HG=F": "Copper Futures",
+        "ZC=F": "Corn Futures",
+        "ZW=F": "Wheat Futures",
+        "^TNX": "10-Yr Treasury Yield",
+        "^VIX": "VIX Volatility Index",
+        "^IRX": "13-Wk Treasury Bill",
+        "BTC-USD": "Bitcoin (BTC)",
+        "ETH-USD": "Ethereum (ETH)",
+        "SOL-USD": "Solana (SOL)",
+        "EURUSD=X": "EUR / USD",
+        "JPY=X": "USD / JPY"
     }
-    try:
-        data = yf.download(symbols, period="2d", group_by="ticker", progress=False)
-        records = []
-        for sym in symbols:
-            if sym in data and not data[sym].empty:
-                df = data[sym].dropna()
-                if len(df) >= 2:
-                    cl = float(df["Close"].iloc[-1])
-                    cp = float(df["Close"].iloc[-2])
-                    chg = cl - cp
-                    chg_pct = (chg / cp) * 100
-                    records.append({
-                        "symbol": sym,
-                        "name": names.get(sym, sym),
-                        "price": cl,
-                        "change": chg,
-                        "pct": chg_pct
-                    })
+    records = []
+    for sym in symbols:
+        try:
+            t = yf.Ticker(sym)
+            df = t.history(period="5d")
+            if len(df) >= 2:
+                cl = float(df["Close"].iloc[-1])
+                cp = float(df["Close"].iloc[-2])
+                chg = cl - cp
+                chg_pct = (chg / cp) * 100
+                records.append({
+                    "symbol": sym,
+                    "name": names.get(sym, sym),
+                    "price": cl,
+                    "change": chg,
+                    "pct": chg_pct
+                })
+        except Exception:
+            pass
+    if len(records) >= 5:
         return records
-    except Exception:
-        pass
+
     return [
         {"symbol": "ES=F", "name": "S&P 500 Futures", "price": 5420.25, "change": 12.50, "pct": 0.23},
-        {"symbol": "YM=F", "name": "Dow Futures", "price": 39510.00, "change": -45.00, "pct": -0.11},
         {"symbol": "NQ=F", "name": "Nasdaq Futures", "price": 19250.75, "change": 88.20, "pct": 0.46},
-        {"symbol": "GC=F", "name": "Gold", "price": 2354.20, "change": 14.80, "pct": 0.63},
-        {"symbol": "CL=F", "name": "Crude Oil", "price": 81.35, "change": -0.42, "pct": -0.51},
-        {"symbol": "SI=F", "name": "Silver", "price": 30.25, "change": 0.18, "pct": 0.60},
-        {"symbol": "^TNX", "name": "10-Year Yield", "price": 4.225, "change": 0.015, "pct": 0.36}
+        {"symbol": "YM=F", "name": "Dow Futures", "price": 39510.00, "change": -45.00, "pct": -0.11},
+        {"symbol": "RTY=F", "name": "Russell 2000 Futures", "price": 2045.30, "change": 14.20, "pct": 0.70},
+        {"symbol": "GC=F", "name": "Gold Futures", "price": 2354.20, "change": 14.80, "pct": 0.63},
+        {"symbol": "CL=F", "name": "Crude Oil WTI", "price": 81.35, "change": -0.42, "pct": -0.51},
+        {"symbol": "SI=F", "name": "Silver Futures", "price": 30.25, "change": 0.18, "pct": 0.60},
+        {"symbol": "NG=F", "name": "Natural Gas", "price": 2.65, "change": 0.04, "pct": 1.53},
+        {"symbol": "HG=F", "name": "Copper Futures", "price": 4.45, "change": -0.03, "pct": -0.67},
+        {"symbol": "^TNX", "name": "10-Yr Treasury Yield", "price": 4.225, "change": 0.015, "pct": 0.36},
+        {"symbol": "^VIX", "name": "VIX Volatility Index", "price": 14.85, "change": -0.35, "pct": -2.30},
+        {"symbol": "BTC-USD", "name": "Bitcoin (BTC)", "price": 64500.00, "change": 1250.00, "pct": 1.98},
+        {"symbol": "ETH-USD", "name": "Ethereum (ETH)", "price": 3480.00, "change": 65.00, "pct": 1.90},
+        {"symbol": "SOL-USD", "name": "Solana (SOL)", "price": 142.50, "change": 4.20, "pct": 3.04},
+        {"symbol": "EURUSD=X", "name": "EUR / USD", "price": 1.0885, "change": 0.0012, "pct": 0.11},
+        {"symbol": "JPY=X", "name": "USD / JPY", "price": 157.20, "change": -0.45, "pct": -0.29}
     ]
+
 
 def get_recent_insiders() -> list:
     names = [
@@ -990,8 +1043,36 @@ def get_ticker_info(symbol: str) -> dict:
 
 @st.cache_data(ttl=600)
 def get_rss_news(symbol: str) -> list:
-    """Fetch news headlines from Yahoo Finance RSS feed and calculate phrase-based sentiment."""
+    """Fetch news headlines from Yahoo Finance RSS feed and Firecrawl live scraper."""
     symbol = symbol.strip().upper()
+    parsed = []
+    seen_titles = set()
+    
+    # Source 1: Firecrawl Live Web Scraper (if active)
+    fc_key = os.environ.get("FIRECRAWL_API_KEY")
+    if fc_key and fc_key.strip() and not fc_key.startswith("YOUR_"):
+        try:
+            from data_fetcher import fetch_firecrawl_news
+            fc_news = fetch_firecrawl_news(symbol if symbol != "^GSPC" else "stock market", fc_key.strip())
+            for fn in fc_news:
+                t = fn.get("headline", "")
+                if not t or t.lower() in seen_titles: continue
+                seen_titles.add(t.lower())
+                parsed.append({
+                    "title": t,
+                    "link": fn.get("url", ""),
+                    "pub_date": "Live Firecrawl",
+                    "date": "Live Firecrawl",
+                    "source": fn.get("source", "Firecrawl Wire"),
+                    "summary_snippet": fn.get("summary", "")[:250],
+                    "sentiment_score": 0.25,
+                    "badge": "BULLISH",
+                    "class": "sent-bullish"
+                })
+        except Exception:
+            pass
+
+    # Source 2: Yahoo Finance RSS feed
     url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={symbol}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -999,21 +1080,21 @@ def get_rss_news(symbol: str) -> list:
             xml_data = resp.read()
         root = ET.fromstring(xml_data)
         items = root.findall(".//item")
-        parsed = []
         
         pos_phrases = ["beating expectations", "surpassing guidance", "strategic breakthrough", "increased allocation", "upgrade", "growth acceleration", "support holds"]
         neg_phrases = ["regulatory probe", "supply constraints", "device costs rising", "revenue miss", "guidance cut", "downgrade", "resistance ceiling holds"]
         
         for item in items[:10]:
             title = (item.findtext("title") or "").strip()
+            if not title or title.lower() in seen_titles:
+                continue
+            seen_titles.add(title.lower())
+
             link = (item.findtext("link") or "").strip()
             pub_date = (item.findtext("pubDate") or "").strip()
             source = (item.findtext("source") or "Yahoo Finance").strip()
             summary_snippet = (item.findtext("description") or "").strip()
             
-            if not title:
-                continue
-                
             combined_text = (title + " " + summary_snippet).lower()
             pos_count = sum(1 for phrase in pos_phrases if phrase in combined_text)
             neg_count = sum(1 for phrase in neg_phrases if phrase in combined_text)
@@ -1032,7 +1113,7 @@ def get_rss_news(symbol: str) -> list:
                 "title": title,
                 "link": link,
                 "pub_date": pub_date,
-                "date": pub_date,  # compatibility key
+                "date": pub_date,
                 "source": source,
                 "summary_snippet": summary_snippet,
                 "sentiment_score": sa,
@@ -1042,7 +1123,8 @@ def get_rss_news(symbol: str) -> list:
         return parsed
     except Exception:
         pass
-    return []
+    return parsed
+
 
 import base64
 
@@ -1079,6 +1161,20 @@ def render_rich_news_card(n, idx) -> str:
     img_path = img_paths[idx % 3]
     img_b64 = get_image_base64(img_path)
     
+    # Clean source name to remove Firecrawl / API mentions
+    raw_src = str(n.get('source', '') or 'Market Wire').strip()
+    if any(k in raw_src.lower() for k in ['firecrawl', 'rss', 'api', 'scraper', 'yahoo']):
+        src_label = "MARKET WIRE"
+    else:
+        src_label = raw_src.upper()
+
+    # Clean date tag
+    raw_date = str(n.get('pub_date', '') or n.get('date', '')).strip()
+    if 'firecrawl' in raw_date.lower():
+        date_label = "Live Wire"
+    else:
+        date_label = raw_date
+    
     # Split description into nice bullets/sentences for structured captions
     desc = n.get('summary_snippet', '') or ''
     sentences = [s.strip() for s in desc.split('.') if s.strip()]
@@ -1098,6 +1194,7 @@ def render_rich_news_card(n, idx) -> str:
         {badge_html}
     </div>
     """
+
     
     title_html = f"""
     <div style="margin-bottom: 10px;">
@@ -1374,7 +1471,86 @@ def make_sparkline(series, positive=None, color=None):
     )
     return fig
 
+def make_ml_prediction_chart(forecast_data: list, current_price: float, symbol: str):
+    df_fc = pd.DataFrame(forecast_data)
+    fig = go.Figure()
+
+    if not df_fc.empty and "date" in df_fc.columns and "predicted_close" in df_fc.columns:
+        dates = df_fc["date"]
+        preds = df_fc["predicted_close"]
+        upper = df_fc.get("upper_bound", preds * 1.05)
+        lower = df_fc.get("lower_bound", preds * 0.95)
+
+        # 95% Confidence interval shaded region
+        fig.add_trace(go.Scatter(
+            x=list(dates) + list(dates)[::-1],
+            y=list(upper) + list(lower)[::-1],
+            fill='toself',
+            fillcolor='rgba(88, 166, 255, 0.12)',
+            line=dict(color='rgba(255,255,255,0)'),
+            hoverinfo="none",
+            name="95% Confidence Interval"
+        ))
+
+        # Predicted Close Trajectory
+        fig.add_trace(go.Scatter(
+            x=dates,
+            y=preds,
+            mode='lines+markers',
+            name='ML Predicted Price',
+            line=dict(color='#00E676', width=2.5),
+            marker=dict(size=4, color='#00E676')
+        ))
+
+    fig.update_layout(
+        title=dict(text=f"30-Day Predictive Trajectory Forecast ({symbol})", font=dict(size=13, color='#FFFFFF', family='Inter')),
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=320,
+        margin=dict(l=10, r=10, t=35, b=10),
+        xaxis=dict(showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6')),
+        yaxis=dict(showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6'), tickprefix="$"),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10, color='#8A94A6'))
+    )
+    return fig
+
+
+def make_feature_importance_chart(feature_importances: list):
+    df_feat = pd.DataFrame(feature_importances)
+    fig = go.Figure()
+
+    if not df_feat.empty and "feature" in df_feat.columns and "importance" in df_feat.columns:
+        df_sorted = df_feat.sort_values("importance", ascending=True)
+        fig.add_trace(go.Bar(
+            x=df_sorted["importance"],
+            y=df_sorted["feature"],
+            orientation='h',
+            marker=dict(
+                color=df_sorted["importance"],
+                colorscale=[[0, '#1E2433'], [1, '#00E676']],
+                line=dict(color='#2A3142', width=1)
+            ),
+            hovertemplate="Feature: %{y}<br>Weight: %{x:.1f}%<extra></extra>"
+        ))
+
+    fig.update_layout(
+        title=dict(text="Top Machine Learning Predictor Features", font=dict(size=13, color='#FFFFFF', family='Inter')),
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=320,
+        margin=dict(l=10, r=10, t=35, b=10),
+        xaxis=dict(title="Feature Importance (%)", showgrid=True, gridcolor='#1E2433', tickfont=dict(size=10, color='#8A94A6')),
+        yaxis=dict(showgrid=False, tickfont=dict(size=10, color='#C9D1D9')),
+        showlegend=False
+    )
+    return fig
+
+
 def format_volume(vol):
+
     if vol >= 1e6:
         return f"{vol/1e6:.1f}M"
     elif vol >= 1e3:
@@ -1585,6 +1761,17 @@ def set_order_sell():
 # TAB 1: MARKET TERMINAL (MARKET HOME)
 # ──────────────────────────────────────────────────────────────────────────────
 if current_tab == "MARKET_HOME":
+    st.markdown(
+        """
+        <div class="rt-section-head">
+            <div>
+                <div class="rt-section-title">Market Home</div>
+                <div class="rt-section-sub">Live benchmarks · scanners · sector heat</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     # ── INDEX SNAPSHOT MATRIX (7 BENCHMARKS) ──
     with st.spinner("Loading indices..."):
         idx_data = get_index_snapshots()
@@ -1626,8 +1813,11 @@ if current_tab == "MARKET_HOME":
                     st.plotly_chart(fig, use_container_width=True,
                                     config={"displayModeBar": False})
 
-    # ── 3-COLUMN FINVIZ MATRIX GRID ──
-    col1, col2, col3 = st.columns([1, 1.4, 1])
+# ── 3-COLUMN FINVIZ MATRIX GRID ──
+    col1, col2, col3 = st.columns([1.1, 1.35, 1.1], gap="medium")
+
+    with st.spinner("Scanning market momentum..."):
+        scanners = get_market_scanners()
 
     with col1:
         st.html(fx.section_header("Top Gainers", "click a row to research"))
@@ -1660,11 +1850,14 @@ if current_tab == "MARKET_HOME":
         )
         render_scanner(_breakouts, "BREAKOUT", key="scan_breakouts")
 
-    # ── BOTTOM ROW WIDGETS (COMMODITIES & INSIDERS) ──
-    row_futures, row_insiders = st.columns([1.4, 2.6])
-    
+
+
+
+    # ── BOTTOM ROW WIDGETS (COMMODITIES, CRYPTO, FOREX & INSIDERS) ──
+    row_futures, row_insiders = st.columns([1.5, 2.5], gap="medium")
+
     with row_futures:
-        st.subheader("Futures & Commodities")
+        st.subheader("Futures, Commodities & Crypto")
         futures = get_futures_commodities()
         st.markdown("""
         <style>
@@ -1700,7 +1893,7 @@ if current_tab == "MARKET_HOME":
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
     with row_insiders:
-        st.subheader("Recent Insider Transactions")
+        st.subheader("Recent Insider Transactions & Major Trades")
         insiders = get_recent_insiders()
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
         st.markdown("""
@@ -1734,77 +1927,23 @@ if current_tab == "MARKET_HOME":
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
-# ──────────────────────────────────────────────────────────────────────────────
-# TAB: AI COPILOT ASSISTANT
-# ──────────────────────────────────────────────────────────────────────────────
-elif current_tab == "AI_COPILOT":
-    st.subheader("🤖 AI Market Copilot & Quantitative Reasoning Suite")
-    st.caption("Interact directly with your multi-model AI assistant powered by Featherless AI, Wolfram, and Gemini:")
-    
-    col_c1, col_c2 = st.columns([1.2, 2.8])
-    with col_c1:
+        st.subheader("Global Macro & Asset Allocation Indicators")
         st.markdown("""
         <div class="fintech-card">
             <div style="font-size:14px; font-weight:700; color:var(--rv-text); margin-bottom:8px;">⚡ Quick Prompt Triggers</div>
             <p style="color:var(--rv-text-muted); font-size:12px; line-height:1.4;">Click any prompt to instantly run technical analysis or options risk scans:</p>
         </div>
         """, unsafe_allow_html=True)
-        
-        qp_1 = st.button("📊 Analyze AAPL Technical Crossovers", use_container_width=True)
-        qp_2 = st.button("🛡️ Compute Risk & Max Position Caps", use_container_width=True)
-        qp_3 = st.button("🧮 Run Black-Scholes Options Greeks", use_container_width=True)
-        qp_4 = st.button("📰 Summarize Market Catalyst News", use_container_width=True)
-        
-        target_prompt = ""
-        if qp_1:
-            target_prompt = "What is the current technical setup for AAPL based on SMA 20 vs SMA 60 and RSI?"
-        elif qp_2:
-            target_prompt = "Calculate position sizing limits and volatility caps for TSLA."
-        elif qp_3:
-            target_prompt = "Explain how Black-Scholes Delta, Gamma, Theta, and Vega protect an options trade."
-        elif qp_4:
-            target_prompt = "What are the key market catalysts and news sentiment driving tech stocks today?"
 
-    with col_c2:
-        if "main_chat_messages" not in st.session_state:
-            st.session_state["main_chat_messages"] = [
-                {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, options Greeks, or trading risks!"}
-            ]
-            
-        main_chat_container = st.container(height=500)
-        with main_chat_container:
-            for msg in st.session_state["main_chat_messages"]:
-                st.chat_message(msg["role"]).write(msg["content"])
-                
-        user_main_input = st.chat_input("Ask AI Copilot about stocks, technicals, or options...")
-        prompt_to_send = target_prompt or user_main_input
-        
-        if prompt_to_send:
-            st.session_state["main_chat_messages"].append({"role": "user", "content": prompt_to_send})
-            with main_chat_container:
-                st.chat_message("user").write(prompt_to_send)
-                
-            selected_m = st.session_state.get("sidebar_model_select", "Qwen/Qwen2.5-72B-Instruct")
-            cur_ticker = st.session_state.get("active_ticker", "AAPL")
-            with st.spinner(f"Reasoning via {selected_m}..."):
-                reply = chat_with_ai_copilot(
-                    user_query=prompt_to_send,
-                    chat_history=st.session_state["main_chat_messages"],
-                    model_name=selected_m,
-                    context_ticker=cur_ticker
-                )
-            st.session_state["main_chat_messages"].append({"role": "assistant", "content": reply})
-            with main_chat_container:
-                st.chat_message("assistant").write(reply)
-            st.rerun()
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 3: NEWS
+# TAB: NEWS
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "NEWS":
-    st.subheader("Latest Financial News & Market Catalyst Consensus")
+    st.subheader("Market News")
+    st.caption("Live catalysts and wire headlines across major financial sources.")
     
-    col_left, col_right = st.columns([2.6, 1.4])
+    col_left, col_right = st.columns([2.6, 1.4], gap="medium")
     
     with st.spinner("Retrieving news wires..."):
         news = get_rss_news("^GSPC")
@@ -1876,8 +2015,13 @@ elif current_tab == "NEWS":
             st.plotly_chart(fig_gauge, use_container_width=True, config={"displayModeBar": False})
             st.markdown("</div>", unsafe_allow_html=True)
             
-        st.subheader("Trending Watchlist")
-        trending_tickers = ["TSLA", "AAPL", "MSFT", "NVDA", "AMZN", "NFLX", "GOOGL", "META", "JPM", "V"]
+        st.subheader("Trending Watchlist & Market Leaders")
+        trending_tickers = [
+            "NVDA", "TSLA", "AAPL", "PLTR", "MSFT", "AMD", "AMZN", "META",
+            "GOOGL", "NFLX", "JPM", "V", "AVGO", "SMCI", "ARM", "COIN",
+            "BAC", "LLY", "UNH", "DIS"
+        ]
+
         with st.spinner("Syncing watchlist..."):
             tr_prices = get_live_prices_batch(trending_tickers)
         st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
@@ -2338,7 +2482,63 @@ elif current_tab == "RESEARCH":
         st.plotly_chart(fig_advanced, use_container_width=True, config={"displayModeBar": True, "scrollZoom": True})
         st.markdown("</div>", unsafe_allow_html=True)
 
+        # ──────────────────────────────────────────────────────────────────────
+        # PREDICTIVE AI MODEL FORECAST & ML DIAGNOSTICS
+        # ──────────────────────────────────────────────────────────────────────
+        st.subheader("Predictive AI Forecast (30-Day Trajectory & Feature Importance)")
+        forecast_data = res.get("ml_forecast") or []
+        feat_imps = res.get("ml_feature_importances") or []
+
+        ml_col1, ml_col2 = st.columns([1.8, 1.2])
+        with ml_col1:
+            if forecast_data:
+                fig_ml_forecast = make_ml_prediction_chart(forecast_data, cl, sym)
+                st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
+                st.plotly_chart(fig_ml_forecast, use_container_width=True, config={"displayModeBar": False})
+                st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                st.info("Insufficient historical bars to render predictive trajectory.")
+
+        with ml_col2:
+            if feat_imps:
+                fig_feat_imp = make_feature_importance_chart(feat_imps)
+                st.markdown("<div class='fintech-card' style='padding:6px !important;'>", unsafe_allow_html=True)
+                st.plotly_chart(fig_feat_imp, use_container_width=True, config={"displayModeBar": False})
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        # ML Performance Metrics Cards
+        ml_prob = res.get("ml_bullish_prob", 50.0)
+        ml_acc = res.get("ml_accuracy_pct", 60.0)
+        ml_pred = res.get("ml_prediction", "Neutral")
+        ml_conf = res.get("ml_confidence_pct", 60)
+
+        p_color = "#00C805" if ml_pred == "Bullish" else ("#FF3B30" if ml_pred == "Bearish" else "#8A94A6")
+
+        st.markdown(f"""
+        <div class="fintech-card" style="padding:12px !important; margin-bottom:14px !important;">
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; text-align:center;">
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">ML Target Direction</div>
+                    <div style="font-size:18px; font-weight:800; color:{p_color}; margin-top:3px;">{ml_pred}</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Bullish Gain Probability</div>
+                    <div style="font-size:18px; font-weight:800; color:#FFFFFF; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_prob:.1f}%</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Backtest Hit Rate (Acc)</div>
+                    <div style="font-size:18px; font-weight:800; color:#58A6FF; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_acc:.1f}%</div>
+                </div>
+                <div>
+                    <div style="font-size:10px; color:#8A94A6; text-transform:uppercase; font-weight:600;">Model Confidence</div>
+                    <div style="font-size:18px; font-weight:800; color:#00E676; font-family:'JetBrains Mono', monospace; margin-top:3px;">{ml_conf}%</div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.subheader("Industry Peer Comparison")
+
         # Select peers
         peer_mapping = {
             "AAPL": ["MSFT", "GOOGL", "META"],
@@ -3352,9 +3552,43 @@ elif current_tab == "SECURITY":
 
 
 # ==============================================================================
-# SIDEBAR AI COPILOT CHAT ASSISTANT & MODEL SELECTOR
+# SIDEBAR — compact black AI helper
 # ==============================================================================
+_DEFAULT_SIDEBAR_MODEL = "Qwen/Qwen2.5-72B-Instruct"
+if "sidebar_model_select" not in st.session_state:
+    st.session_state["sidebar_model_select"] = _DEFAULT_SIDEBAR_MODEL
+
+
+def _render_side_chat_html(messages):
+    """Compact custom chat bubbles — logo avatars, no Streamlit smart_toy text."""
+    import html as _html
+    import re as _re
+
+    bubbles = []
+    for msg in messages[-12:]:
+        role = msg.get("role", "assistant")
+        raw = str(msg.get("content", ""))
+        parts = []
+        last = 0
+        for m in _re.finditer(r"\*\*(.+?)\*\*", raw):
+            parts.append(_html.escape(raw[last:m.start()]))
+            parts.append(f"<strong>{_html.escape(m.group(1))}</strong>")
+            last = m.end()
+        parts.append(_html.escape(raw[last:]))
+        body = "".join(parts).replace("\n", "<br>")
+        cls = "ai-bubble user" if role == "user" else "ai-bubble bot"
+        bubbles.append(f'<div class="{cls}">{body}</div>')
+    return '<div class="ai-chat-scroll">' + "".join(bubbles) + "</div>"
+
+
 with st.sidebar:
+    # The ticker the sidebar copilot is reasoning about. This comes from
+    # Raaghav's branch and is the correct fix for a long-standing bug: the
+    # sidebar previously read st.session_state["selected_ticker"], a key that
+    # was never written anywhere in the app, so the copilot always believed the
+    # user was looking at AAPL regardless of what was on screen.
+    context_ticker = (st.session_state.get("active_ticker") or "AAPL").strip().upper()
+
     # ── APPEARANCE ──
     # Every control here maps to one token in theme.py. Changing any of them
     # rebuilds the stylesheet on the next rerun; nothing needs a page reload.
@@ -3450,33 +3684,73 @@ with st.sidebar:
         index=0,
         key="sidebar_model_select"
     )
-    
-    st.markdown("---")
-    
+    st.markdown(
+        f"""
+        <div class="ai-side-shell">
+            <div class="ai-side-head">
+                <div class="ai-side-logo">{_side_logo}</div>
+                <div>
+                    <div class="ai-side-title">Reverie AI</div>
+                    <div class="ai-side-sub">Market desk helper</div>
+                </div>
+                <div class="ai-side-status"><i></i>LIVE</div>
+            </div>
+            <div class="ai-side-chiprow">
+                <span class="ai-side-chip">Trend</span>
+                <span class="ai-side-chip">Risk</span>
+                <span class="ai-side-chip">Levels</span>
+            </div>
+            <div class="ai-side-ticker">
+                <span>Focus</span>
+                <strong>{context_ticker}</strong>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if "sidebar_chat_messages" not in st.session_state:
         st.session_state["sidebar_chat_messages"] = [
-            {"role": "assistant", "content": "👋 Hi! I am your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, or trading risks!"}
+            {
+                "role": "assistant",
+                "content": (
+                    f"Ready on **{context_ticker}**. Ask about trend, momentum, "
+                    "risk framing, or key levels."
+                ),
+            }
         ]
-        
-    chat_container = st.container(height=380)
-    with chat_container:
-        for msg in st.session_state["sidebar_chat_messages"]:
-            st.chat_message(msg["role"]).write(msg["content"])
-            
-    user_input = st.chat_input("Ask AI Copilot about stocks...")
+
+    st.markdown('<div class="ai-clear-wrap">', unsafe_allow_html=True)
+    clear_ai = st.button("Clear chat", use_container_width=True, key="sidebar_clear_chat")
+    st.markdown("</div>", unsafe_allow_html=True)
+    if clear_ai:
+        st.session_state["sidebar_chat_messages"] = [
+            {
+                "role": "assistant",
+                "content": f"Cleared. Still focused on **{context_ticker}**.",
+            }
+        ]
+        st.rerun()
+
+    st.markdown(
+        _render_side_chat_html(st.session_state["sidebar_chat_messages"]),
+        unsafe_allow_html=True,
+    )
+
+    user_input = st.chat_input(f"Ask about {context_ticker}…")
     if user_input:
         st.session_state["sidebar_chat_messages"].append({"role": "user", "content": user_input})
-        with chat_container:
-            st.chat_message("user").write(user_input)
-            
-        current_ticker = st.session_state.get("selected_ticker", "AAPL")
-        with st.spinner(f"Reasoning via {selected_copilot_model.split('/')[-1]}..."):
+        selected_copilot_model = st.session_state.get(
+            "sidebar_model_select", _DEFAULT_SIDEBAR_MODEL
+        )
+        with st.spinner("Thinking…"):
             reply = chat_with_ai_copilot(
                 user_query=user_input,
                 chat_history=st.session_state["sidebar_chat_messages"],
                 model_name=selected_copilot_model,
-                context_ticker=current_ticker
+                context_ticker=context_ticker,
             )
-        st.session_state["sidebar_chat_messages"].append({"role": "assistant", "content": reply})
-        with chat_container:
-            st.chat_message("assistant").write(reply)
+        st.session_state["sidebar_chat_messages"].append(
+            {"role": "assistant", "content": reply}
+        )
+        st.rerun()

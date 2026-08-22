@@ -1,9 +1,11 @@
 import pandas as pd
 import numpy as np
+from predictive_model import train_predictive_model
+
 
 def calculate_price_metrics(df: pd.DataFrame) -> dict:
     """
-    Calculates technical indicators and historical performance changes.
+    Calculates technical indicators, moving averages, Bollinger Bands, and historical performance changes.
     Expected columns: 'Close'
     """
     metrics = {}
@@ -11,7 +13,6 @@ def calculate_price_metrics(df: pd.DataFrame) -> dict:
     if df.empty or 'Close' not in df.columns:
         return metrics
         
-    # Clean the index and ensure sorting by date asc
     df = df.sort_index()
     clean_series = df['Close'].dropna()
     close_prices = clean_series.values
@@ -21,43 +22,68 @@ def calculate_price_metrics(df: pd.DataFrame) -> dict:
     last_close = float(close_prices[-1])
     metrics['last_close'] = last_close
     
-    # 2. Historical changes
+    # Historical percentage changes
     if len(close_prices) > 1:
         prev_close = float(close_prices[-2])
         metrics['day_change_pct'] = ((last_close - prev_close) / prev_close) * 100 if prev_close > 0 else 0.0
     else:
         metrics['day_change_pct'] = 0.0
         
-    # 5-day change
     if len(close_prices) >= 6:
-        close_5d_ago = float(close_prices[-6])
-        metrics['change_5d_pct'] = ((last_close - close_5d_ago) / close_5d_ago) * 100 if close_5d_ago > 0 else 0.0
+        close_5d = float(close_prices[-6])
+        metrics['change_5d_pct'] = ((last_close - close_5d) / close_5d) * 100 if close_5d > 0 else 0.0
     else:
         metrics['change_5d_pct'] = 0.0
         
-    # 20-day change
     if len(close_prices) >= 21:
-        close_20d_ago = float(close_prices[-21])
-        metrics['change_20d_pct'] = ((last_close - close_20d_ago) / close_20d_ago) * 100 if close_20d_ago > 0 else 0.0
+        close_20d = float(close_prices[-21])
+        metrics['change_20d_pct'] = ((last_close - close_20d) / close_20d) * 100 if close_20d > 0 else 0.0
     else:
         metrics['change_20d_pct'] = 0.0
         
-    # 60-day change
     if len(close_prices) >= 61:
-        close_60d_ago = float(close_prices[-61])
-        metrics['change_60d_pct'] = ((last_close - close_60d_ago) / close_60d_ago) * 100 if close_60d_ago > 0 else 0.0
+        close_60d = float(close_prices[-61])
+        metrics['change_60d_pct'] = ((last_close - close_60d) / close_60d) * 100 if close_60d > 0 else 0.0
     else:
         metrics['change_60d_pct'] = 0.0
         
-    # 3. Simple Moving Averages
+    # Moving Averages (SMAs & EMAs)
     def _safe_mean(ser):
         val = float(ser.mean())
         return val if not np.isnan(val) else last_close
 
     metrics['sma_5'] = _safe_mean(clean_series.tail(5)) if len(clean_series) >= 5 else last_close
     metrics['sma_20'] = _safe_mean(clean_series.tail(20)) if len(clean_series) >= 20 else last_close
+    metrics['sma_50'] = _safe_mean(clean_series.tail(50)) if len(clean_series) >= 50 else last_close
     metrics['sma_60'] = _safe_mean(clean_series.tail(60)) if len(clean_series) >= 60 else last_close
-    
+    metrics['sma_200'] = _safe_mean(clean_series.tail(200)) if len(clean_series) >= 200 else last_close
+
+    # Exponential Moving Averages (EMA 9 & EMA 21)
+    if len(clean_series) >= 9:
+        ema_9_val = float(clean_series.ewm(span=9, adjust=False).mean().iloc[-1])
+        metrics['ema_9'] = ema_9_val if not np.isnan(ema_9_val) else last_close
+    else:
+        metrics['ema_9'] = last_close
+        
+    if len(clean_series) >= 21:
+        ema_21_val = float(clean_series.ewm(span=21, adjust=False).mean().iloc[-1])
+        metrics['ema_21'] = ema_21_val if not np.isnan(ema_21_val) else last_close
+    else:
+        metrics['ema_21'] = last_close
+
+    # Bollinger Bands (20-day, 2 std dev)
+    if len(clean_series) >= 20:
+        roll20 = clean_series.tail(20)
+        m20 = float(roll20.mean())
+        std20 = float(roll20.std())
+        metrics['bb_middle'] = m20
+        metrics['bb_upper'] = m20 + (2.0 * std20)
+        metrics['bb_lower'] = m20 - (2.0 * std20)
+    else:
+        metrics['bb_middle'] = last_close
+        metrics['bb_upper'] = last_close * 1.05
+        metrics['bb_lower'] = last_close * 0.95
+
     return metrics
 
 def calculate_volatility(df: pd.DataFrame) -> dict:
@@ -96,8 +122,6 @@ def calculate_volatility(df: pd.DataFrame) -> dict:
 def analyze_sentiment(news_articles: list) -> dict:
     """
     Performs a lexicon-based sentiment analysis on top news articles.
-    Returns a score between -1.0 (strongly bearish) and +1.0 (strongly bullish),
-    along with a label.
     """
     if not news_articles:
         return {
@@ -106,7 +130,6 @@ def analyze_sentiment(news_articles: list) -> dict:
             "description": "No recent headlines available to compute sentiment rating."
         }
         
-    # Standard financial sentiment indicators
     positive_words = {
         'bullish', 'buy', 'growth', 'upgrade', 'beat', 'outperform', 'profit', 
         'gain', 'positive', 'surge', 'rise', 'soar', 'strong', 'record', 
@@ -125,15 +148,12 @@ def analyze_sentiment(news_articles: list) -> dict:
     article_scores = []
     
     for article in news_articles:
-        headline = article.get("headline", "").lower()
-        
-        # Word tokenization & matching
+        headline = (article.get("headline", "") + " " + article.get("summary", "")).lower()
         words = headline.replace("'", "").replace('"', '').replace(',', ' ').replace('.', ' ').split()
         
         pos_count = sum(1 for w in words if w in positive_words)
         neg_count = sum(1 for w in words if w in negative_words)
         
-        # Compute individual article score
         if pos_count == 0 and neg_count == 0:
             score = 0.0
         else:
@@ -141,10 +161,8 @@ def analyze_sentiment(news_articles: list) -> dict:
             
         article_scores.append(score)
         
-    # Average the scores
     avg_score = float(np.mean(article_scores)) if article_scores else 0.0
     
-    # Categorize label
     if avg_score > 0.15:
         label = "Bullish"
     elif avg_score < -0.15:
@@ -158,23 +176,36 @@ def analyze_sentiment(news_articles: list) -> dict:
         "description": f"{label} sentiment calculated across {total_articles} recent articles (Score: {avg_score:.2f})."
     }
 
-def run_analysis(symbol: str, data: dict) -> dict:
+def run_analysis(symbol_or_data, data: dict = None) -> dict:
     """
-    Main entry point for analytics. Combines prices, volatility, and sentiment.
+    Main entry point for analytics. Combines price metrics, indicators, volatility, sentiment, and fundamentals.
+    Supports both run_analysis(symbol, data) and run_analysis(data).
     """
-    if not data["success"]:
+    if isinstance(symbol_or_data, dict) and data is None:
+        data = symbol_or_data
+        symbol = data.get("symbol", "UNKNOWN")
+    else:
+        symbol = symbol_or_data
+        if data is None:
+            data = {"success": False, "error_message": "No market data provided."}
+
+    if not data.get("success", False):
         return {
             "symbol": symbol,
             "success": False,
-            "error_message": data["error_message"]
+            "error_message": data.get("error_message", "Failed to retrieve stock data.")
         }
+
         
     df = data["prices"]
     news = data["news"]
-    
+    fundamentals = data.get("fundamentals", {})
+
     price_metrics = calculate_price_metrics(df)
     vol_metrics = calculate_volatility(df)
     sent_metrics = analyze_sentiment(news)
+    ml_res = train_predictive_model(symbol, df)
+
     
     return {
         "symbol": symbol,
@@ -186,11 +217,27 @@ def run_analysis(symbol: str, data: dict) -> dict:
         "change_60d_pct": price_metrics.get("change_60d_pct"),
         "sma_5": price_metrics.get("sma_5"),
         "sma_20": price_metrics.get("sma_20"),
+        "sma_50": price_metrics.get("sma_50"),
         "sma_60": price_metrics.get("sma_60"),
+        "sma_200": price_metrics.get("sma_200"),
+        "ema_9": price_metrics.get("ema_9"),
+        "ema_21": price_metrics.get("ema_21"),
+        "bb_middle": price_metrics.get("bb_middle"),
+        "bb_upper": price_metrics.get("bb_upper"),
+        "bb_lower": price_metrics.get("bb_lower"),
         "volatility_pct": vol_metrics["volatility_pct"],
         "volatility_level": vol_metrics["level"],
         "sentiment_score": sent_metrics["score"],
         "sentiment_label": sent_metrics["label"],
         "sentiment_desc": sent_metrics["description"],
-        "news": news
+        "news": news,
+        "fundamentals": fundamentals,
+        "ml_model_result": ml_res,
+        "ml_prediction": ml_res.get("prediction", "Neutral"),
+        "ml_bullish_prob": ml_res.get("bullish_probability", 50.0),
+        "ml_confidence_pct": ml_res.get("confidence_pct", 60),
+        "ml_accuracy_pct": ml_res.get("backtest_accuracy_pct", 60.0),
+        "ml_feature_importances": ml_res.get("feature_importances", []),
+        "ml_forecast": ml_res.get("forecast", [])
     }
+

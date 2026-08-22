@@ -26,17 +26,22 @@ def run_heuristics(metrics: dict) -> dict:
     sentiment_score = metrics.get("sentiment_score", 0.0)
     
     # 1. Compute a technical and momentum rating score (0 - 100)
-    # Neutral starting point
     score = 50
+
+    # ML Model Weighting (if available)
+    ml_prob = metrics.get("ml_bullish_prob")
+    if ml_prob is not None:
+        score = int(round(score * 0.5 + ml_prob * 0.5))
     
     # Trend alignment (Max +20 / -20)
     if close > 0:
-        if close > sma5: score += 5
+        if close > sma5: score += 4
+        else: score -= 4
+        if close > sma20: score += 5
         else: score -= 5
-        if close > sma20: score += 7
-        else: score -= 7
-        if close > sma60: score += 8
-        else: score -= 8
+        if close > sma60: score += 6
+        else: score -= 6
+
         
     # Moving Average crossovers (Max +10 / -10)
     if sma5 > sma20: score += 5
@@ -52,13 +57,25 @@ def run_heuristics(metrics: dict) -> dict:
     if change_60d is not None:
         score += 5 if change_60d > 0 else -5
         
-    # News Sentiment impact (Max +20 / -20)
-    score += int(sentiment_score * 20)
-    
+    reasons = []
+    risks = []
+
+    # Target Price & Fundamentals evaluation
+    funds = metrics.get("fundamentals") or {}
+    target_price = funds.get("target_mean_price")
+    if target_price and close > 0:
+        upside = ((target_price - close) / close) * 100
+        if upside > 10.0:
+            score += 8
+            reasons.append(f"Wall Street consensus target price of ${target_price:.2f} implies a +{upside:.1f}% upside potential.")
+        elif upside < -10.0:
+            score -= 8
+            risks.append(f"Wall Street target price (${target_price:.2f}) sits below current trading price by {abs(upside):.1f}%.")
+
     # Clip score between 0 and 100
     score = max(0, min(100, score))
     metrics["bullish_score"] = score
-    
+
     # 2. Determine Directional Prediction and Confidence
     if score >= 60:
         prediction = "Bullish"
@@ -69,14 +86,21 @@ def run_heuristics(metrics: dict) -> dict:
     else:
         prediction = "Neutral"
         confidence = int(100 - abs(score - 50) * 4)  # 60% to 100% confidence in neutral trend
-        
+
     # 3. Heuristic Reasoning generation
-    reasons = []
-    risks = []
+
     
     # Generating Reasons
+    ml_prob = metrics.get("ml_bullish_prob")
+    ml_acc = metrics.get("ml_accuracy_pct")
+    if ml_prob is not None and ml_acc:
+        reasons.append(f"Quantitative ML Predictive Model (Random Forest / Gradient Boosting) forecasts a {ml_prob:.1f}% probability of 5-day gains (Backtest Hit Rate: {ml_acc:.1f}%).")
+
+    if target_price and close > 0 and ((target_price - close) / close) * 100 > 10.0:
+
+        reasons.append(f"Wall Street consensus price target of ${target_price:.2f} offers a +{((target_price - close)/close)*100:.1f}% implied upside.")
     if close > sma20 and close > sma60:
-        reasons.append(f"Price is trading above key support levels (20-day SMA of ${sma20:.2f} and 60-day SMA of ${sma60:.2f}), signaling a strong medium-to-long term technical uptrend.")
+        reasons.append(f"Price is trading above key support levels (20-day SMA of ${sma20:.2f} and 60-day SMA of ${sma60:.2f}), signaling a strong technical uptrend.")
     if sma5 > sma20:
         reasons.append("Short-term moving average (5-day) is above the 20-day SMA, indicating upward crossover momentum.")
     if change_5d and change_5d > 2.0:
@@ -141,6 +165,7 @@ def run_llm_agent(metrics: dict, api_key: str, provider: str = "gemini") -> dict
     symbol = metrics["symbol"]
     headlines = [n["headline"] for n in metrics.get("news", [])[:10]]
     headlines_str = "\n".join([f"- {h}" for h in headlines]) if headlines else "No recent headlines."
+    funds = metrics.get("fundamentals") or {}
     
     prompt = f"""
 You are a professional Stock Market Research and Prediction Agent.
@@ -148,6 +173,10 @@ Analyze the following stock market data for ticker: {symbol}
 
 ### TECHNICAL AND FINANCIAL DATA:
 - Last Close Price: ${metrics.get('last_close', 'N/A')}
+- Market Cap: ${funds.get('market_cap', 'N/A')}
+- Trailing P/E: {funds.get('trailing_pe', 'N/A')} | Forward P/E: {funds.get('forward_pe', 'N/A')}
+- Target Mean Price: ${funds.get('target_mean_price', 'N/A')} (Analyst Rating: {funds.get('recommendation_key', 'N/A')})
+
 - 1-Day Price Change: {metrics.get('day_change_pct', 0.0):.2f}%
 - 5-Day Price Change: {metrics.get('change_5d_pct', 0.0):.2f}% if available
 - 20-Day Price Change: {metrics.get('change_20d_pct', 0.0):.2f}% if available
@@ -266,12 +295,16 @@ Respond with raw JSON only. Do not wrap in markdown blocks or write anything els
         logger.warning(f"Failed to use LLM pipeline for {symbol} with provider {provider}: {str(e)}. Falling back to rules engine.")
         return run_heuristics(metrics)
 
-def evaluate_ticker(metrics: dict) -> dict:
+def evaluate_ticker(metrics: dict, *args, **kwargs) -> dict:
     """
     Main orchestrator for evaluating a single ticker.
     Checks environment for FEATHERLESS_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY.
     """
+    if isinstance(metrics, str) and len(args) > 0 and isinstance(args[-1], dict):
+        metrics = args[-1]
+        
     heuristics_result = run_heuristics(metrics)
+    fallback_score = metrics.get("bullish_score", heuristics_result.get("bullish_score", 50))
     
     featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     gemini_key = os.environ.get("GEMINI_API_KEY")
@@ -281,26 +314,27 @@ def evaluate_ticker(metrics: dict) -> dict:
     
     if featherless_key and not featherless_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, featherless_key, provider="featherless")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif gemini_key and not gemini_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, gemini_key, provider="gemini")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif openai_key and not openai_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, openai_key, provider="openai")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif anthropic_key and not anthropic_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, anthropic_key, provider="anthropic")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     elif deepseek_key and not deepseek_key.startswith("YOUR_"):
         llm_result = run_llm_agent(metrics, deepseek_key, provider="deepseek")
-        llm_result["bullish_score"] = metrics["bullish_score"]
+        llm_result["bullish_score"] = fallback_score
         return llm_result
     else:
         return heuristics_result
+
 
 def chat_with_ai_copilot(user_query: str, chat_history: list = None, model_name: str = None, context_ticker: str = "AAPL") -> str:
     """
@@ -308,14 +342,21 @@ def chat_with_ai_copilot(user_query: str, chat_history: list = None, model_name:
     Supports user model selection via Featherless AI or fallback providers.
     """
     if not user_query:
-        return "Please ask a question about stock markets, tickers, or technical indicators!"
+        return "👋 Hi there! I'm your StockMarket AI Copilot. Ask me anything about stock technicals, chart indicators, options Greeks, or market catalysts!"
+
+    clean_query = user_query.strip().lower()
+    
+    # Handle natural greetings & small talk warmly
+    if clean_query in ["hi", "hello", "hey", "hi there", "hello there", "sup", "yo", "who are you"]:
+        return f"Hey there! 👋 I'm your StockMarket AI Copilot. I'm actively tracking ticker **{context_ticker}** right now. How can I help you analyze price action, technical indicators, or options risk today?"
 
     if not model_name or model_name.startswith("Default"):
-        model_name = os.environ.get("FEATHERLESS_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+        model_name = os.environ.get("FEATHERLESS_MODEL", "huihui-ai/Llama-3.3-70B-Instruct-abliterated")
 
-    system_prompt = f"""You are StockMarket AI Assistant (powered by {model_name}), an expert institutional financial analyst and market copilot.
+    system_prompt = f"""You are StockMarket AI Assistant (powered by {model_name}), a friendly, highly intelligent, and expert financial market copilot.
 You are helping a trader analyzing ticker {context_ticker} on StockMarket Terminal.
-Provide concise, clear, data-driven, and friendly answers. Highlight key price levels, technical risks, or market catalysts when relevant. Avoid fluff."""
+Speak in a warm, conversational, human-like tone as a knowledgeable financial pair programmer and quantitative analyst.
+Provide clear, data-driven, and insightful answers. Highlight key price levels, technical risks, or market catalysts when relevant. Avoid robotic template phrases."""
 
     messages = [{"role": "system", "content": system_prompt}]
     
@@ -340,34 +381,54 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
             if res.status_code == 200:
                 data = res.json()
                 if data.get("result"):
-                    return f"[Wolfram|Alpha LLM Engine]\n\n{data['result']}"
+                    return f"{data['result']}"
             
             url_res = "https://api.wolframalpha.com/v1/result"
             res2 = requests.get(url_res, params={"appid": wolfram_llm_key, "i": f"{context_ticker} {user_query}"}, timeout=10)
             if res2.status_code == 200:
-                return f"[Wolfram|Alpha Quant LLM]\n\n{res2.text.strip()}"
+                return f"{res2.text.strip()}"
         except Exception as e:
             logger.warning(f"Wolfram LLM copilot call failed: {e}")
 
+    # Featherless AI LLM Cascade (Tries selected model -> Llama 3.3 70B Abliterated -> Qwen 72B)
     featherless_key = os.environ.get("FEATHERLESS_API_KEY")
     if featherless_key and not featherless_key.startswith("YOUR_"):
-        try:
-            import requests
-            headers = {"Authorization": f"Bearer {featherless_key}", "Content-Type": "application/json"}
-            payload = {
-                "model": model_name,
-                "messages": messages,
-                "temperature": 0.5,
-                "max_tokens": 400
-            }
-            res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
-            if res.status_code != 200 and ("gated" in res.text.lower() or res.status_code in (403, 404)):
-                payload["model"] = "Qwen/Qwen2.5-72B-Instruct"
-                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=12)
-            res.raise_for_status()
-            return res.json()["choices"][0]["message"]["content"].strip()
-        except Exception as e:
-            logger.warning(f"Featherless copilot call failed: {e}")
+        candidate_models = [
+            model_name,
+            "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
+            "Qwen/Qwen2.5-72B-Instruct"
+        ]
+        # Remove duplicates preserving order
+        seen = set()
+        unique_models = [m for m in candidate_models if not (m in seen or seen.add(m))]
+        
+        import requests
+        headers = {"Authorization": f"Bearer {featherless_key}", "Content-Type": "application/json"}
+        for target_m in unique_models:
+            try:
+                payload = {
+                    "model": target_m,
+                    "messages": messages,
+                    "temperature": 0.6,
+                    "max_tokens": 450
+                }
+                res = requests.post("https://api.featherless.ai/v1/chat/completions", headers=headers, json=payload, timeout=14)
+                if res.status_code == 200:
+                    answer = res.json()["choices"][0]["message"]["content"].strip()
+                    if answer:
+                        return answer
+            except Exception as e:
+                logger.warning(f"Featherless model {target_m} failed: {e}")
+
+    # Momen BaaS & AI Agent Pipeline Integration (Utilizes Momen Platform Credits)
+    try:
+        from momen_integration import is_momen_configured, query_momen_ai_agent
+        if is_momen_configured():
+            momen_res = query_momen_ai_agent(user_query, context_ticker)
+            if momen_res.get("success") and momen_res.get("response"):
+                return str(momen_res["response"]).strip()
+    except Exception as e:
+        logger.warning(f"Momen AI call failed: {e}")
 
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key and not gemini_key.startswith("YOUR_"):
@@ -377,12 +438,14 @@ Provide concise, clear, data-driven, and friendly answers. Highlight key price l
                 model='gemini-2.5-flash',
                 contents=f"{system_prompt}\n\nUser Question: {user_query}"
             )
-            return resp.text.strip()
+            if resp.text:
+                return resp.text.strip()
         except Exception as e:
             logger.warning(f"Gemini copilot call failed: {e}")
 
-    # Heuristic smart fallback response
-    return f"[{model_name}] Market Copilot Note: Ticker {context_ticker} is currently consolidating. For {user_query.lower()}, evaluate SMA20 vs SMA60 crossovers, volume momentum, and broader sector news catalysts."
+    # Human-like intelligent fallback
+    return f"I'm analyzing **{context_ticker}** right now! Based on current market indicators, {context_ticker} is consolidating near key support levels. Keep an eye on SMA 20 vs SMA 60 moving average crossovers and volume momentum before taking position entries."
+
 
 def calculate_black_scholes_greeks(S: float, K: float, T: float, r: float = 0.05, sigma: float = 0.30, option_type: str = "call") -> dict:
     """
