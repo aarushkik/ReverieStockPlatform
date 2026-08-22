@@ -1,8 +1,31 @@
 # Reverie Terminal
 
-A Streamlit market terminal: live quotes, heatmaps, screeners, technical
-research, a paper-trading simulator and an AI copilot — behind a sign-in that
-scores every attempt with a trained risk model.
+A market terminal with a verifiable AI research layer: live quotes, screeners,
+technical research, a paper-trading simulator — and a **Workbench** where AI
+analysis runs as an auditable workflow instead of a chat.
+
+## The idea
+
+> Every AI answer in finance is a black box you cannot audit. Reverie turns AI
+> research into a workflow where every claim carries a receipt.
+
+Pick a workflow, watch it execute as a DAG over real market-data tools, and get
+a memo in which every number is a citation back to the exact tool call, source
+and timestamp that measured it. If a data source fails, the run goes red and
+**refuses to produce the memo** rather than letting the model write around the
+gap.
+
+Asking a model to cite its sources is easy and worth little — it will attach a
+plausible citation to a number it invented. The verifier re-reads the finished
+memo, extracts every numeric claim, and checks it against the fact it cites.
+Four outcomes, each surfaced in the UI:
+
+| | |
+| --- | --- |
+| `verified` | the figure matches what was measured (rounding allowed) |
+| `uncited` | a number with no source |
+| `unknown_fact` | cites an id that is not in the ledger |
+| `mismatch` | cites a real fact but states a different number |
 
 ## Running it
 
@@ -14,133 +37,92 @@ streamlit run app.py
 ```
 
 The first run has no accounts, so the sign-in screen offers to create one.
+Set any one of `FEATHERLESS_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
+`DEEPSEEK_API_KEY` or `GEMINI_API_KEY` to enable memo writing; without one the
+Workbench still runs and collects facts, and says so.
 
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `app.py` | The terminal: tabs, data fetching, charts |
+| `app.py` | The terminal: tabs, layout, charts |
+| `workflow/` | The Workbench — tool registry, DAG engine, fact ledger, citation verifier, templates |
 | `theme.py` | Design tokens — the single source of truth for every colour, size and spacing value |
 | `ui_effects.py` | Motion primitives ported from React Bits |
-| `auth/` | Sign-in, login risk scoring, bot detection |
-| `data_fetcher.py`, `analyzer.py`, `agent_logic.py`, `dashboard.py` | Market data and analysis backend |
+| `indicators.py` | Technical indicators (pure, tested) |
+| `marketdata.py` | Market data fetching that raises instead of inventing |
+| `predictive_model.py` | Direction classifier over engineered features |
+| `auth/` | Sign-in, login-risk scoring, bot detection |
+| `tests/` | 151 tests, no network, ~1s |
+
+## What this app will not do
+
+It will not show you a number it did not measure. That sounds obvious; it was
+not true of this codebase until recently, and the fixes are the reason the
+Workbench's claim is credible:
+
+- `get_ticker_info` invented a whole company on failure — market cap $250B,
+  P/E 24.5, EPS 4.5 — and derived the day's change from
+  `sum(ord(c) for c in symbol)`, the arithmetic of the ticker's letters.
+- `get_market_scanners` rebuilt the entire movers table from that same
+  character-sum whenever fewer than five symbols resolved.
+- `get_recent_insiders` returned ten fabricated transactions attributed to
+  real, named executives, with dates stamped relative to `now()` so they always
+  looked fresh. It made no network call at all.
+- `process_advanced_analytics` returned RSI exactly 50, a quant score of
+  exactly 50, and support/resistance off a $150.00 placeholder when it had too
+  little history.
+- `predictive_model` reported a **58.5% backtest accuracy** that was never
+  computed, plus five hardcoded feature importances, whenever training failed.
+- `chat_with_ai_copilot` returned a canned sentence styled as analysis when
+  every LLM provider failed.
+- RSS news had been failing on *every* request — `urllib` could not verify TLS
+  against the system trust store, and a bare `except` turned that into an empty
+  list, indistinguishable from a market with no headlines.
+
+All of it is gone. Unmeasured values render as an em dash; failed fetches raise;
+partial coverage is reported ("3 of 4 symbols resolved") rather than topped up.
 
 ## Design system
 
-Nothing in the app hardcodes a colour. `theme.py` resolves a `Theme` into CSS
-custom properties for markup and plain Python values for Plotly, which renders
-server-side and cannot read CSS variables.
+Nothing hardcodes a colour. `theme.py` resolves a `Theme` into CSS custom
+properties for markup and Python values for Plotly, which renders server-side
+and cannot read CSS variables. Palette × accent × density × radius × motion —
+648 combinations, all verified to build — plus colour-vision-deficiency
+alternatives for the gain/loss pair, live-editable and saveable to the account.
 
-Tokens vary along independent axes, so they compose — 648 combinations, all
-verified to build:
-
-- **palette** — Midnight, Graphite, Abyss, Parchment (light)
-- **accent** — Mint, Azure, Violet, Amber, Rose, Cyan
-- **density** — Compact / Cozy / Roomy (spacing, control and row heights)
-- **radius**, **motion**, **text scale**, glass, grid lines, small caps
-- **gain/loss pair** — including colour-vision-deficiency alternatives
-
-All of it is live-editable from **Appearance** in the sidebar and saveable to
-the account.
-
-Contrast is enforced rather than hoped for. `ensure_contrast()` walks any
-colour toward black or white until it clears 4.5:1 against the surface it sits
-on, so an accent tuned for a dark palette stays legible on the light one —
-Cyan on Parchment resolves to `#147F8F` while staying recognisably cyan. Text
-colours are split from fill colours, since the contrast floor applies to type
-but would wash out large fills and chart series.
-
-## Motion
-
-Effects are ports of [React Bits](https://reactbits.dev) components
-(MIT + Commons Clause) rewritten as framework-free CSS and DOM script, because
-this app renders server-side and adopting the React originals would mean
-shipping a component bundle for every animated number on the page.
-
-`SpotlightCard`, `CountUp`, `ShinyText`, `GradientText`, `DecryptedText`,
-`ClickSpark`, `StarBorder`, `AnimatedContent`, `Magnet`, and an
-Aurora + Particles backdrop for the sign-in screen.
-
-CountUp keeps upstream's spring constants and integrates them directly, so the
-curve matches the Framer Motion original. Everything degrades to its finished
-state — a counter that never binds still shows the correct figure — and every
-effect honours both the motion token and the OS reduce-motion setting.
+Contrast is enforced, not hoped for: `ensure_contrast()` walks any colour toward
+black or white until it clears 4.5:1 against its surface, so Cyan on the light
+palette resolves to `#147F8F` while staying recognisably cyan.
 
 ## Security
 
-Sign-in runs three checks in order: **bot detection** (so automated clients
-burn no password-hashing work and learn nothing about which usernames exist),
-**credentials**, then **risk scoring**.
+Sign-in runs bot detection, then credentials, then risk scoring — in that order,
+so an automated client burns no password-hashing work and learns nothing about
+which usernames exist. The outcome is graded: allow, challenge, or deny.
 
-The outcome is graded — allow, challenge, or deny — because locking a trader
-out of their own account is worse than asking for a second factor.
-
-**Login risk** combines 18 features: implied travel velocity between
-consecutive sign-ins, distance, elapsed time, country/city/network/device
-familiarity, hour-of-day deviation measured on the circle, datacenter and
-proxy reputation, recent failures, account age, and browser-vs-IP timezone
-agreement.
-
-**Bot detection** uses 19 features from a browser probe: pointer path
-straightness and turn-angle entropy, keystroke rhythm, form fill time,
-automation flags, environment plausibility, and a honeypot field.
-
-Deterministic rules outrank the model in both directions. A journey requiring
-Mach 5 is not a probability, and a filled honeypot is proof rather than
-evidence; equally, a known device on a known network de-escalates, because
-over-challenging trains people to click through prompts without reading them.
-Every decision carries plain-language reasons — an unexplained risk score is
-unactionable for the user and unauditable afterwards.
-
-Passwords are scrypt hashes with per-user salts. Unknown usernames still run a
-full scrypt computation against a decoy, so timing cannot enumerate accounts.
-The event log stores resolved city and coarse coordinates, never the raw IP.
-
-### On the models
+Login risk uses 18 features including implied travel velocity between
+consecutive sign-ins; bot detection uses 19 including pointer path straightness
+and keystroke rhythm. Deterministic rules outrank the model in both directions —
+a journey requiring Mach 5 is not a probability, and a filled honeypot is proof.
 
 **Both models are trained on simulated data**, because no labelled corpus of
-real sign-ins exists for this application. The reported metrics measure how
-well each model recovers its own generator — they are not an estimate of field
-accuracy against a live adversary. This is stated in the code, in the model
-cards, and on the Security tab.
+real sign-ins exists here. The reported metrics measure how well each model
+recovers its own generator, not field accuracy against a live adversary. This is
+stated in the code, the model cards, and on the Security tab.
 
 | | Login risk | Bot detection |
 | --- | --- | --- |
 | ROC-AUC | 0.966 | 0.978 |
-| PR-AUC | 0.941 | 0.966 |
-| Brier | 0.046 | 0.022 |
-| Calibration error | 0.018 | 0.005 |
 | Precision / Recall | 0.926 / 0.941 | 0.976 / 0.969 |
 | False-positive rate | 0.048 | 0.018 |
 
-Probabilities are isotonically calibrated, because the gate compares them
-against a threshold and so they have to mean something. The threshold is
-chosen against a cost model rather than accuracy.
-
-The generators deliberately overlap the classes — a first version scored
-AUC 1.000, which meant the classes were trivially separable and the models had
-learned a giveaway. They now include the cases real systems get wrong:
-business travellers on new devices, users who fumble a password, attackers on
-residential proxies, stolen device fingerprints, password-manager autofill and
-keyboard-only navigation. Residual error concentrates in exactly those
-ambiguous scenarios and is 0% on the unambiguous ones.
-
-Every real sign-in is logged in the same schema the generator emits, so
-retraining on genuine data is a change of source, not a rewrite:
-
-```bash
-python -m auth.train
-```
-
 ## Configuration
 
-Optional, via `.env` or environment:
-
 - `FINNHUB_API_KEY` — live quotes
-- `TRUST_PROXY_HEADERS` — set only when behind a proxy you control.
+- `TRUST_PROXY_HEADERS` — set only behind a proxy you control.
   `X-Forwarded-For` is client-controllable; trusting it on a directly exposed
   server lets an attacker choose which country they appear to be in.
 - `DEVICE_ID_SALT` — salts the device fingerprint per deployment
 
-`auth/data/` holds account records and the sign-in log. It is gitignored and
-should stay that way.
+`auth/data/` holds account records and the sign-in log. It is gitignored.
