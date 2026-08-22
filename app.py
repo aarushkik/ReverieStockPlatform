@@ -18,6 +18,8 @@ from agent_logic import evaluate_ticker, chat_with_ai_copilot
 from dashboard import generate_markdown_report
 
 # Design system, motion primitives and the authentication layer
+import indicators
+import marketdata
 import theme as theme_mod
 import ui_effects as fx
 import workflow as wf
@@ -769,79 +771,49 @@ def get_market_breadth_index() -> dict:
 
 @st.cache_data(ttl=600)
 def get_market_scanners() -> dict:
-    core = list(HEATMAP_STOCKS.keys())
-    records = []
+    """Rank the tracked universe by change, volume and window extremes.
+
+    Delegates to marketdata.fetch_scanner_universe. The version this replaces
+    discarded every real record and rebuilt the entire table from
+    `sum(ord(c) for c in ticker)` whenever fewer than five symbols resolved —
+    producing a complete, plausible, entirely fictional set of market movers
+    that the UI rendered exactly like live data.
+
+    Partial coverage is now reported instead of topped up, and the extremes are
+    labelled by the window actually measured rather than as "52-week".
+    """
     try:
-        data = yf.download(core, period="65d", group_by="ticker", progress=False)
-        for tk in core:
-            try:
-                if tk in data:
-                    df = data[tk].dropna()
-                elif isinstance(data.columns, pd.MultiIndex) and tk in data.columns.levels[0]:
-                    df = data[tk].dropna()
-                else:
-                    df = pd.DataFrame()
-                if not df.empty and len(df) >= 2:
-                    cl = float(df["Close"].iloc[-1])
-                    cp = float(df["Close"].iloc[-2])
-                    chg = ((cl - cp) / cp) * 100
-                    vol_now = float(df["Volume"].iloc[-1])
-                    vol_avg = float(df["Volume"].tail(60).mean()) if len(df) >= 60 else float(df["Volume"].mean())
-                    vol_ratio = vol_now / (vol_avg + 1e-5)
-                    hi_52 = float(df["High"].max())
-                    lo_52 = float(df["Low"].min())
-                    is_hi = cl >= hi_52 * 0.98
-                    is_lo = cl <= lo_52 * 1.02
-                    records.append({
-                        "ticker": tk, "close": cl, "change": chg,
-                        "volume": vol_now, "vol_ratio": vol_ratio,
-                        "is_hi": is_hi, "is_lo": is_lo
-                    })
-            except Exception:
-                continue
-    except Exception:
-        pass
+        result = marketdata.fetch_scanner_universe(
+            list(HEATMAP_STOCKS.keys()), lookback_days=65)
+    except marketdata.DataUnavailable as exc:
+        return {
+            "ok": False, "error": str(exc), "coverage": 0.0,
+            "requested": len(HEATMAP_STOCKS), "resolved": 0, "window_days": 65,
+            "gainers": [], "losers": [], "trending": [],
+            "unusual_vol": [], "new_hi": [], "new_lo": [],
+        }
 
-    # Deterministic fallback records if yfinance download returned incomplete or empty records
-    if len(records) < 5:
-        records = []
-        for i, tk in enumerate(core):
-            # Seed values based on ticker hash for consistency
-            seed_val = sum(ord(c) for c in tk) + i * 17
-            close = 45.0 + (seed_val % 350)
-            chg = ((seed_val % 100) - 48) / 10.0  # -4.8% to +5.1%
-            vol = 5000000 + (seed_val * 123456) % 45000000
-            records.append({
-                "ticker": tk, "close": close, "change": chg,
-                "volume": vol, "vol_ratio": 1.0 + (seed_val % 30) / 10.0,
-                "is_hi": (seed_val % 7 == 0), "is_lo": (seed_val % 11 == 0)
-            })
-
-    rdf = pd.DataFrame(records)
-    gainers = rdf.sort_values("change", ascending=False).head(8).to_dict("records")
-    losers = rdf.sort_values("change", ascending=True).head(8).to_dict("records")
-    trending = rdf.sort_values("vol_ratio", ascending=False).head(8).to_dict("records")
-    unusual = rdf.sort_values("volume", ascending=False).head(8).to_dict("records")
-    
-    # 52-Week Highs / Gainers
-    hi_df = rdf[rdf["is_hi"]]
-    if len(hi_df) < 4:
-        hi_df = rdf.sort_values("change", ascending=False).head(8)
-    new_hi = hi_df.head(8).to_dict("records")
-
-    # 52-Week Lows / Losers
-    lo_df = rdf[rdf["is_lo"]]
-    if len(lo_df) < 4:
-        lo_df = rdf.sort_values("change", ascending=True).head(8)
-    new_lo = lo_df.head(8).to_dict("records")
+    at_high = [r for r in result.records if r["at_window_high"]]
+    at_low = [r for r in result.records if r["at_window_low"]]
 
     return {
-        "gainers": gainers,
-        "losers": losers,
-        "trending": trending,
-        "unusual_vol": unusual,
-        "new_hi": new_hi,
-        "new_lo": new_lo
+        "ok": True,
+        "error": None,
+        "coverage": result.coverage,
+        "requested": result.requested,
+        "resolved": result.resolved,
+        "window_days": result.window_days,
+        "gainers": result.top("change", 8),
+        "losers": result.top("change", 8, ascending=True),
+        # vol_ratio is None when the average volume was zero, so sort those last
+        # rather than letting None compare against floats.
+        "trending": sorted(
+            [r for r in result.records if r.get("vol_ratio") is not None],
+            key=lambda r: r["vol_ratio"], reverse=True)[:8],
+        "unusual_vol": result.top("volume", 8),
+        # Genuinely at the window extreme, not "the top movers if none qualify".
+        "new_hi": sorted(at_high, key=lambda r: r["change"], reverse=True)[:8],
+        "new_lo": sorted(at_low, key=lambda r: r["change"])[:8],
     }
 
 
@@ -918,34 +890,21 @@ def get_futures_commodities() -> list:
 
 
 def get_recent_insiders() -> list:
-    names = [
-        ("AAPL", "Cook Timothy D", "CEO", "Sale", 175.50, 50000),
-        ("MSFT", "Nadella Satya", "CEO", "Sale", 420.10, 15000),
-        ("NVDA", "Huang Jen Hsun", "CEO", "Sale", 126.30, 120000),
-        ("TSLA", "Musk Elon", "CEO", "Buy", 172.50, 200000),
-        ("AMZN", "Bezos Jeffrey P", "Director", "Sale", 188.40, 80000),
-        ("META", "Zuckerberg Mark", "CEO", "Sale", 485.60, 10000),
-        ("GOOGL", "Pichai Sundar", "CEO", "Sale", 177.20, 25000),
-        ("NFLX", "Hastings Reed", "Director", "Sale", 620.50, 8000),
-        ("JPM", "Dimon Jamie", "CEO", "Sale", 195.30, 30000),
-        ("LLY", "Ricks David A", "CEO", "Sale", 820.00, 5000)
-    ]
-    records = []
-    base_date = datetime.now()
-    for idx, (tk, name, title, tx, price, shares) in enumerate(names):
-        date_str = (base_date - timedelta(days=idx)).strftime("%b %d")
-        val = price * shares
-        records.append({
-            "ticker": tk,
-            "owner": name,
-            "relation": title,
-            "date": date_str,
-            "type": tx,
-            "price": price,
-            "shares": shares,
-            "value": val
-        })
-    return records
+    """Recent insider transactions. Returns [] until a real source is wired up.
+
+    This function previously returned ten hardcoded transactions attributed to
+    real, named executives — "Cook Timothy D", "Nadella Satya", "Musk Elon" —
+    with invented prices, share counts and dates stamped relative to
+    datetime.now() so they always looked fresh. It made no network call at all.
+
+    That is the most serious fabrication in the codebase: invented securities
+    dealings attributed to identifiable real people, rendered indistinguishably
+    from filed data. Deleted outright rather than relabelled.
+
+    A real implementation needs SEC Form 4 filings (EDGAR full-text search, or
+    a vendor feed). Until then the panel shows an empty state that says so.
+    """
+    return []
 
 @st.cache_data(ttl=600)
 def get_macro_news() -> list:
@@ -989,60 +948,68 @@ def get_macro_news() -> list:
 
 @st.cache_data(ttl=600)
 def get_ticker_info(symbol: str) -> dict:
-    symbol = symbol.strip().upper()
-    try:
-        t = yf.Ticker(symbol)
-        info = t.info
-        prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose", 0.0) or 0.0
-        cur_price = info.get("currentPrice") or info.get("regularMarketPrice") or info.get("open", 0.0) or 0.0
-        chg_pct = info.get("regularMarketChangePercent")
-        if chg_pct is None:
-            if prev_close > 0 and cur_price > 0:
-                chg_pct = ((cur_price - prev_close) / prev_close) * 100
-            else:
-                seed_val = sum(ord(c) for c in symbol)
-                chg_pct = ((seed_val % 100) - 48) / 10.0
-        return {
-            "previous_close": prev_close if prev_close > 0 else 150.0,
-            "open": info.get("open", 0.0) or 0.0,
-            "bid": info.get("bid", 0.0) or 0.0,
-            "ask": info.get("ask", 0.0) or 0.0,
-            "volume": info.get("volume", 0.0) or 0.0,
-            "avg_volume": info.get("averageVolume", 0.0) or 0.0,
-            "market_cap": info.get("marketCap", 0.0) or 0.0,
-            "long_name": info.get("longName", symbol) or symbol,
-            "beta": info.get("beta", 0.0) or 0.0,
-            "pe_ratio": info.get("trailingPE", 0.0) or 0.0,
-            "eps": info.get("trailingEps", 0.0) or 0.0,
-            "day_low": info.get("dayLow", 0.0) or 0.0,
-            "day_high": info.get("dayHigh", 0.0) or 0.0,
-            "fifty_two_low": info.get("fiftyTwoWeekLow", 0.0) or 0.0,
-            "fifty_two_high": info.get("fiftyTwoWeekHigh", 0.0) or 0.0,
-            "day_change_pct": float(chg_pct)
-        }
-    except Exception:
-        pass
+    """Quote and fundamentals, or an all-None record marked ok=False.
 
-    seed_val = sum(ord(c) for c in symbol)
-    fallback_chg = ((seed_val % 100) - 48) / 10.0
-    return {
-        "previous_close": 150.0 + (seed_val % 200),
-        "open": 150.0 + (seed_val % 200),
-        "bid": 150.0,
-        "ask": 150.2,
-        "volume": 12000000.0,
-        "avg_volume": 15000000.0,
-        "market_cap": 250000000000.0,
-        "long_name": symbol,
-        "beta": 1.1,
-        "pe_ratio": 24.5,
-        "eps": 4.5,
-        "day_low": 148.0,
-        "day_high": 155.0,
-        "fifty_two_low": 120.0,
-        "fifty_two_high": 180.0,
-        "day_change_pct": float(fallback_chg)
-    }
+    Delegates to marketdata.fetch_ticker_info. The version this replaces
+    invented a complete company on failure — market cap 250e9, P/E 24.5, EPS
+    4.5, beta 1.1, a 52-week range of 120-180 — and derived the day's change
+    percentage from `sum(ord(c) for c in symbol)`, the arithmetic of the
+    ticker's letters. None of that was distinguishable from real data once it
+    reached the screen.
+
+    Individual fields the provider omits stay None rather than becoming 0.0,
+    so an unknown P/E renders as "unavailable" instead of a real P/E of zero.
+    """
+    try:
+        payload = marketdata.fetch_ticker_info(symbol)
+    except marketdata.DataUnavailable as exc:
+        blank = {k: None for k in (
+            "previous_close", "open", "bid", "ask", "volume", "avg_volume",
+            "market_cap", "beta", "pe_ratio", "eps", "day_low", "day_high",
+            "fifty_two_low", "fifty_two_high", "day_change_pct", "sector")}
+        blank.update({"ok": False, "symbol": symbol.strip().upper(),
+                      "long_name": symbol.strip().upper(), "error": str(exc)})
+        return blank
+
+    record = payload.to_dict()
+    record["ok"] = True
+    record["error"] = None
+    record["long_name"] = record.get("long_name") or record["symbol"]
+    return record
+
+
+def fmt_money(value, digits: int = 2, dash: str = "\u2014") -> str:
+    """Currency, or an em dash when the figure was never measured."""
+    return dash if value is None else f"${value:,.{digits}f}"
+
+
+def fmt_pct(value, digits: int = 2, dash: str = "\u2014", signed: bool = True) -> str:
+    if value is None:
+        return dash
+    sign = "+" if (signed and value >= 0) else ""
+    return f"{sign}{value:.{digits}f}%"
+
+
+def fmt_num(value, digits: int = 2, dash: str = "\u2014") -> str:
+    return dash if value is None else f"{value:,.{digits}f}"
+
+
+def fmt_cap(value, dash: str = "\u2014") -> str:
+    """Market cap in compact magnitudes."""
+    if value is None:
+        return dash
+    for cutoff, suffix in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
+        if abs(value) >= cutoff:
+            return f"${value / cutoff:,.2f}{suffix}"
+    return f"${value:,.0f}"
+
+
+def value_class(value) -> str:
+    """CSS class for a signed figure, neutral when it was not measured."""
+    if value is None:
+        return "rv-muted"
+    return "rv-pos" if value >= 0 else "rv-neg"
+
 
 @st.cache_data(ttl=600)
 def get_rss_news(symbol: str) -> list:
@@ -1348,23 +1315,45 @@ def classify_channel(df: pd.DataFrame) -> str:
         return "Mixed Trend"
 
 def process_advanced_analytics(symbol: str, res: dict) -> dict:
+    """Technical analytics for the Research tab.
+
+    Returns ``ok=False`` with every numeric field None when the input has too
+    little history, rather than a plausible neutral reading.
+    """
     df = res.get("prices", pd.DataFrame())
     if df.empty or "Close" not in df.columns or len(df) < 5:
-        last_c = res.get("last_close", 150.0) or 150.0
+        # Not enough history to compute anything. The version this replaces
+        # returned a complete, confident analysis here: RSI exactly 50, a quant
+        # score of exactly 50, support and resistance derived from a $150.00
+        # placeholder price, and a position-sizing paragraph quoting "15.0%
+        # annualized volatility" and a "10.0%" capital cap — none of it
+        # measured, all of it rendered identically to a real reading.
+        #
+        # Every field is None now, and the UI renders None as unavailable.
         return {
-            "rsi": 50.0, "support": last_c * 0.95, "resistance": last_c * 1.05,
-            "crossover_status": "Neutral", "action_label": "HOLD",
-            "action_class": "badge-hold", "ratio_20": 1.0, "ratio_60": 1.0,
-            "quant_score": 50.0, "position_advice": f"Risk Protocol Status: Current asset exhibits a calculated 60-day annualized volatility metric of 15.0%. The position-sizing engine advises capping your theoretical capital deployment to exactly 10.0% of total available portfolio equity balance sheets.", "channel": "Consolidation",
-            "sma_200": last_c, "macd": 0.0, "macd_signal": 0.0, "macd_hist": 0.0,
-            "ema_9": last_c, "ema_20": last_c, "volatility": 15.0, "s_total": 0.0,
-            "sma_20": last_c, "sma_60": last_c
+            "ok": False,
+            "reason": "not enough price history to compute indicators",
+            "rsi": None, "support": None, "resistance": None,
+            "crossover_status": None, "action_label": None,
+            "action_class": "badge-hold", "ratio_20": None, "ratio_60": None,
+            "quant_score": None, "position_advice": None, "channel": None,
+            "sma_200": None, "macd": None, "macd_signal": None, "macd_hist": None,
+            "ema_9": None, "ema_20": None, "volatility": None, "s_total": None,
+            "sma_20": None, "sma_60": None,
         }
     
     close_series = df["Close"].dropna()
     P = close_series.tolist()
     if not P:
-        P = [150.0]
+        # Guarded by the length check above, but never substitute a price.
+        return {"ok": False, "reason": "price series is empty",
+                **{k: None for k in (
+                    "rsi", "support", "resistance", "crossover_status",
+                    "action_label", "ratio_20", "ratio_60", "quant_score",
+                    "position_advice", "channel", "sma_200", "macd",
+                    "macd_signal", "macd_hist", "ema_9", "ema_20",
+                    "volatility", "s_total", "sma_20", "sma_60")},
+                "action_class": "badge-hold"}
     price = P[-1]
     
     # 20 SMA & 60 SMA with safe slicing
@@ -1898,37 +1887,44 @@ if current_tab == "MARKET_HOME":
     with row_insiders:
         st.subheader("Recent Insider Transactions & Major Trades")
         insiders = get_recent_insiders()
-        st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
-        st.markdown("""
-        <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
-            <thead>
-                <tr style="border-bottom:1px solid var(--rv-border); color:var(--rv-text-muted); font-size:11px; text-transform:uppercase; text-align:left;">
-                    <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Ticker</th>
-                    <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Insider Owner</th>
-                    <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Relationship</th>
-                    <th style="padding: 12px 14px; text-align:center; background-color: var(--rv-surface) !important;">Trade</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Cost</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Shares</th>
-                    <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Value ($)</th>
-                </tr>
-            </thead>
-            <tbody>
-        """, unsafe_allow_html=True)
-        for idx, item in enumerate(insiders):
-            action_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;" if item["type"] == "Buy" else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;"
-            action_html = f'<span style="{action_style}">{item["type"].upper()}</span>'
-            st.markdown(f"""
-                <tr style="border-bottom: 1px solid var(--rv-border);">
-                    <td style="padding: 12px 14px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{item['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;">{item['ticker']}</span></td>
-                    <td style="padding: 12px 14px; color:var(--rv-text);">{item['owner']}</td>
-                    <td style="padding: 12px 14px; color:var(--rv-text-muted);">{item['relation']}</td>
-                    <td style="padding: 12px 14px; text-align:center;">{action_html}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:var(--rv-text);">${item['price']:.2f}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:var(--rv-text);">{item['shares']:,}</td>
-                    <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--rv-text);">${item['value']:,.0f}</td>
-                </tr>
+        if not insiders:
+            st.html(fx.empty_state(
+                "No insider transaction source connected",
+                "\u25c7",
+                "Form 4 filings need an EDGAR or vendor feed. Nothing is shown "
+                "rather than sample data."))
+        else:
+            st.markdown("<div class='fintech-card' style='padding:0px !important;'>", unsafe_allow_html=True)
+            st.markdown("""
+            <table class="fintech-table" style="width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric: tabular-nums;">
+                <thead>
+                    <tr style="border-bottom:1px solid var(--rv-border); color:var(--rv-text-muted); font-size:11px; text-transform:uppercase; text-align:left;">
+                        <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Ticker</th>
+                        <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Insider Owner</th>
+                        <th style="padding: 12px 14px; background-color: var(--rv-surface) !important;">Relationship</th>
+                        <th style="padding: 12px 14px; text-align:center; background-color: var(--rv-surface) !important;">Trade</th>
+                        <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Cost</th>
+                        <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Shares</th>
+                        <th style="padding: 12px 14px; text-align:right; background-color: var(--rv-surface) !important;">Value ($)</th>
+                    </tr>
+                </thead>
+                <tbody>
             """, unsafe_allow_html=True)
-        st.markdown("</tbody></table></div>", unsafe_allow_html=True)
+            for idx, item in enumerate(insiders):
+                action_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;" if item["type"] == "Buy" else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 800; font-size: 10px;"
+                action_html = f'<span style="{action_style}">{item["type"].upper()}</span>'
+                st.markdown(f"""
+                    <tr style="border-bottom: 1px solid var(--rv-border);">
+                        <td style="padding: 12px 14px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{item['ticker']}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;">{item['ticker']}</span></td>
+                        <td style="padding: 12px 14px; color:var(--rv-text);">{item['owner']}</td>
+                        <td style="padding: 12px 14px; color:var(--rv-text-muted);">{item['relation']}</td>
+                        <td style="padding: 12px 14px; text-align:center;">{action_html}</td>
+                        <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:var(--rv-text);">${item['price']:.2f}</td>
+                        <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; color:var(--rv-text);">{item['shares']:,}</td>
+                        <td style="padding: 12px 14px; text-align:right; font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--rv-text);">${item['value']:,.0f}</td>
+                    </tr>
+                """, unsafe_allow_html=True)
+            st.markdown("</tbody></table></div>", unsafe_allow_html=True)
 
         st.subheader("Global Macro & Asset Allocation Indicators")
         st.markdown("""
@@ -2041,15 +2037,22 @@ elif current_tab == "NEWS":
         """, unsafe_allow_html=True)
         for tk in trending_tickers:
             info = get_ticker_info(tk)
-            chg = info.get("day_change_pct", 0.0) or 0.0
-            price = tr_prices.get(tk, info.get("previous_close", 150.0))
-            sign = "+" if chg >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 4px 10px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+            chg = info.get("day_change_pct")
+            price = tr_prices.get(tk) or info.get("previous_close")
+            badge_style = ("background-color: var(--rv-pos-soft); color: var(--rv-pos); "
+                           "border: 1px solid var(--rv-pos); padding: 4px 10px; border-radius: 4px; "
+                           "font-weight: 700; font-family: 'JetBrains Mono', monospace;") if (chg or 0) >= 0 else (
+                          "background-color: var(--rv-neg-soft); color: var(--rv-neg); "
+                          "border: 1px solid var(--rv-neg); padding: 4px 10px; border-radius: 4px; "
+                          "font-weight: 700; font-family: 'JetBrains Mono', monospace;")
+            if chg is None:
+                badge_style = ("background-color: var(--rv-surface-hi); color: var(--rv-text-faint); "
+                               "padding: 4px 10px; border-radius: 4px; font-weight: 600;")
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
                     <td style="padding: 12px 14px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{tk}" data-rv-dest="RESEARCH" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none; transition: color 0.15s;">{tk}</span></td>
-                    <td style="padding: 12px 14px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${price:,.2f}</td>
-                    <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{sign}{chg:.2f}%</span></td>
+                    <td style="padding: 12px 14px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">{fmt_money(price)}</td>
+                    <td style="padding: 12px 14px; text-align:right;"><span style="{badge_style}">{fmt_pct(chg)}</span></td>
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
@@ -2575,13 +2578,19 @@ elif current_tab == "RESEARCH":
         """, unsafe_allow_html=True)
         for psym in peer_symbols:
             pinfo = get_ticker_info(psym)
-            p_close = peer_prices.get(psym, pinfo.get("previous_close", 150.0))
-            p_chg = pinfo.get("day_change_pct", 0.0) or 0.0
-            p_pe = pinfo.get("pe_ratio", 0.0) or 0.0
-            p_cap = pinfo.get("market_cap", 0.0) or 0.0
-            
-            p_chg_sign = "+" if p_chg >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.15); color: var(--rv-pos); padding: 4px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if p_chg >= 0 else "background-color: rgba(255, 23, 68, 0.15); color: var(--rv-neg); padding: 4px 8px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+            p_close = peer_prices.get(psym) or pinfo.get("previous_close")
+            p_chg = pinfo.get("day_change_pct")
+            p_pe = pinfo.get("pe_ratio")
+            p_cap = pinfo.get("market_cap")
+
+            badge_style = ("background-color: var(--rv-pos-soft); color: var(--rv-pos); padding: 4px 8px; "
+                           "border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+                           ) if (p_chg or 0) >= 0 else (
+                          "background-color: var(--rv-neg-soft); color: var(--rv-neg); padding: 4px 8px; "
+                          "border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;")
+            if p_chg is None:
+                badge_style = ("background-color: var(--rv-surface-hi); color: var(--rv-text-faint); "
+                               "padding: 4px 8px; border-radius: 4px; font-weight: 600;")
             
             is_active = (psym == sym)
             td_bg = "background-color: rgba(0, 230, 118, 0.08);" if is_active else ""
@@ -2592,10 +2601,10 @@ elif current_tab == "RESEARCH":
                 <tr style="border-bottom: 1px solid var(--rv-border);">
                     <td style="padding: 12px 14px; {td_bg} {border_left} color:var(--rv-info); {font_weight}">{psym}</td>
                     <td style="padding: 12px 14px; {td_bg} color:var(--rv-text); {font_weight}">{pinfo.get('long_name', psym)}</td>
-                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">${p_close:.2f}</td>
-                    <td style="padding: 12px 14px; {td_bg} text-align:right;"><span style="{badge_style}">{p_chg_sign}{p_chg:.2f}%</span></td>
-                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">{f"{p_pe:.1f}x" if p_pe > 0 else "N/A"}</td>
-                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">{format_market_cap(p_cap)}</td>
+                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">{fmt_money(p_close)}</td>
+                    <td style="padding: 12px 14px; {td_bg} text-align:right;"><span style="{badge_style}">{fmt_pct(p_chg)}</span></td>
+                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">{f"{p_pe:.1f}x" if p_pe else "\u2014"}</td>
+                    <td style="padding: 12px 14px; {td_bg} text-align:right; color:var(--rv-text); {font_weight} font-family:'JetBrains Mono', monospace;">{fmt_cap(p_cap)}</td>
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
@@ -2681,15 +2690,21 @@ elif current_tab == "TRADE_DESK":
         """, unsafe_allow_html=True)
         for tk in watchlist_tickers:
             info = get_ticker_info(tk)
-            chg = info.get("day_change_pct", 0.0) or 0.0
-            price = wl_prices.get(tk, info.get("previous_close", 150.0))
-            sign_chg = "+" if chg >= 0 else ""
-            badge_style = "background-color: rgba(0, 230, 118, 0.08); color: var(--rv-pos); border: 1px solid rgba(0, 230, 118, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;" if chg >= 0 else "background-color: rgba(255, 23, 68, 0.08); color: var(--rv-neg); border: 1px solid rgba(255, 23, 68, 0.2); padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+            chg = info.get("day_change_pct")
+            price = wl_prices.get(tk) or info.get("previous_close")
+            badge_style = ("background-color: var(--rv-pos-soft); color: var(--rv-pos); border: 1px solid var(--rv-pos); "
+                           "padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;"
+                           ) if (chg or 0) >= 0 else (
+                          "background-color: var(--rv-neg-soft); color: var(--rv-neg); border: 1px solid var(--rv-neg); "
+                          "padding: 3px 6px; border-radius: 4px; font-weight: 700; font-family: 'JetBrains Mono', monospace;")
+            if chg is None:
+                badge_style = ("background-color: var(--rv-surface-hi); color: var(--rv-text-faint); "
+                               "padding: 3px 6px; border-radius: 4px; font-weight: 600;")
             st.markdown(f"""
                 <tr style="border-bottom: 1px solid var(--rv-border);">
                     <td style="padding: 10px 12px; font-weight:700;"><span class="rv-ticker-link" data-rv-ticker="{tk}" data-rv-dest="TRADE_DESK" role="button" tabindex="0" style="color:var(--rv-info); text-decoration:none;">{tk}</span></td>
-                    <td style="padding: 10px 12px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">${price:.2f}</td>
-                    <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">{sign_chg}{chg:.2f}%</span></td>
+                    <td style="padding: 10px 12px; text-align:right; font-weight:700; color:var(--rv-text); font-family:'JetBrains Mono', monospace;">{fmt_money(price)}</td>
+                    <td style="padding: 10px 12px; text-align:right;"><span style="{badge_style}">{fmt_pct(chg)}</span></td>
                 </tr>
             """, unsafe_allow_html=True)
         st.markdown("</tbody></table></div>", unsafe_allow_html=True)
@@ -2866,15 +2881,14 @@ elif current_tab == "TRADE_DESK":
         st.subheader("Quotes / Depth")
         
         info = get_ticker_info(ttk)
-        chg = info.get("day_change_pct", 0.0) or 0.0
-        cc = "color-green" if chg >= 0 else "color-red"
-        sign_chg = "+" if chg >= 0 else ""
+        chg = info.get("day_change_pct")
+        cc = value_class(chg)
         
         st.markdown(f"""
         <div class="fintech-card" style="padding: 12px; margin-bottom: 6px;">
             <div style="font-size:11px; color:var(--rv-text-muted); font-weight:700; text-transform:uppercase;">Quote Details / {ttk}</div>
             <div style="font-size:24px; font-weight:800; color:var(--rv-text); margin-top:4px; font-variant-numeric: tabular-nums;">${sp:.2f}</div>
-            <div class="{cc}" style="font-size:12px; font-weight:700; margin-top:2px;">{sign_chg}{chg:.2f}%</div>
+            <div class="{cc}" style="font-size:12px; font-weight:700; margin-top:2px;">{fmt_pct(chg)}</div>
         </div>
         """, unsafe_allow_html=True)
         
