@@ -16,7 +16,6 @@ never written to session state, and never included in an event record.
 
 from __future__ import annotations
 
-import json
 import os
 import secrets
 import time
@@ -58,6 +57,13 @@ _LOGIN_HTML = """
       </div>
     </div>
 
+    <div class="rv-auth-modes" role="tablist">
+      <button type="button" class="rv-auth-mode is-active" id="rv-mode-signin"
+              role="tab" aria-selected="true">Sign in</button>
+      <button type="button" class="rv-auth-mode" id="rv-mode-signup"
+              role="tab" aria-selected="false">Create account</button>
+    </div>
+
     <label class="rv-auth-label" for="rv-user">Username</label>
     <input class="rv-auth-input" id="rv-user" name="username"
            type="text" autocomplete="username" spellcheck="false"
@@ -70,6 +76,18 @@ _LOGIN_HTML = """
              placeholder="Enter your password" />
       <button type="button" class="rv-auth-peek" id="rv-peek"
               aria-label="Show password" title="Show password">show</button>
+    </div>
+
+    <div id="rv-signup-only" hidden>
+      <label class="rv-auth-label" for="rv-pass2">Confirm password</label>
+      <input class="rv-auth-input" id="rv-pass2" name="confirm"
+             type="password" autocomplete="new-password"
+             placeholder="Re-enter your password" />
+
+      <label class="rv-auth-label" for="rv-display">Display name
+        <span class="rv-auth-optional">optional</span></label>
+      <input class="rv-auth-input" id="rv-display" name="display"
+             type="text" autocomplete="name" placeholder="Ada Lovelace" />
     </div>
 
     <!-- Honeypot. Off-screen, aria-hidden and removed from the tab order, so
@@ -148,6 +166,48 @@ _LOGIN_CSS = """
   font-size: 12px;
   color: var(--rv-text-muted, #93A1B8);
   margin-top: 2px;
+}
+.rv-auth-modes {
+  display: flex;
+  gap: 3px;
+  background: var(--rv-surface-alt, #161C29);
+  border: 1px solid var(--rv-border, #212A3B);
+  border-radius: var(--rv-radius-sm, 6px);
+  padding: 3px;
+  margin-bottom: 20px;
+}
+.rv-auth-mode {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--rv-text-muted, #93A1B8);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 6px;
+  cursor: pointer;
+  transition: background .18s ease, color .18s ease;
+}
+.rv-auth-mode:hover { color: var(--rv-text, #E8EDF5); }
+.rv-auth-mode.is-active {
+  background: var(--rv-surface-hi, #1C2333);
+  color: var(--rv-text, #E8EDF5);
+  box-shadow: 0 1px 2px rgba(0,0,0,.28);
+}
+.rv-auth-optional {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--rv-text-faint, #7A88A0);
+  opacity: .8;
+  margin-left: 5px;
+}
+.rv-auth-hint {
+  font-size: 11.5px;
+  color: var(--rv-text-faint, #7A88A0);
+  margin: -8px 0 14px;
+  line-height: 1.45;
 }
 .rv-auth-label {
   font-size: 11px; font-weight: 600;
@@ -264,13 +324,45 @@ export default function (component) {
   const form = q('#rv-auth-form');
   const userEl = q('#rv-user');
   const passEl = q('#rv-pass');
+  const pass2El = q('#rv-pass2');
+  const displayEl = q('#rv-display');
+  const signupBox = q('#rv-signup-only');
+  const modeSignIn = q('#rv-mode-signin');
+  const modeSignUp = q('#rv-mode-signup');
   const hpEl = q('#rv-company');
   const errEl = q('#rv-auth-error');
   const submitEl = q('#rv-auth-submit');
   const labelEl = q('#rv-auth-submit-label');
   const peekEl = q('#rv-peek');
   const subEl = q('#rv-auth-sub');
+  const footEl = q('#rv-auth-foot-text');
   if (!form) return;
+
+  let mode = (data.mode === 'signup') ? 'signup' : 'signin';
+
+  function applyMode(next) {
+    mode = next;
+    const up = mode === 'signup';
+    signupBox.hidden = !up;
+    modeSignUp.classList.toggle('is-active', up);
+    modeSignIn.classList.toggle('is-active', !up);
+    modeSignUp.setAttribute('aria-selected', String(up));
+    modeSignIn.setAttribute('aria-selected', String(!up));
+    labelEl.textContent = up ? 'Create account' : 'Sign in';
+    subEl.textContent = up ? 'Create your account' : 'Secure sign-in';
+    footEl.textContent = up
+      ? 'New accounts are checked for automation before they are created'
+      : 'Protected by device, location and behaviour analysis';
+    // A password manager should offer to save on signup and to fill on
+    // sign-in; the autocomplete token is what tells it which.
+    passEl.setAttribute('autocomplete', up ? 'new-password' : 'current-password');
+    errEl.classList.remove('show');
+    submitEl.disabled = false;
+  }
+
+  modeSignIn.onclick = () => applyMode('signin');
+  modeSignUp.onclick = () => applyMode('signup');
+  applyMode(mode);
 
   // Telemetry listens on the whole document: the pointer travels across the
   // page before it reaches the form, and that approach path is exactly the
@@ -292,24 +384,46 @@ export default function (component) {
     passEl.focus();
   };
 
+  function fail(message) {
+    errEl.textContent = message;
+    errEl.classList.add('show');
+    submitEl.disabled = false;
+    labelEl.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  }
+
   form.onsubmit = (e) => {
     e.preventDefault();
     const username = (userEl.value || '').trim();
     const password = passEl.value || '';
 
     if (!username || !password) {
-      errEl.textContent = 'Enter both a username and a password.';
-      errEl.classList.add('show');
+      fail('Enter both a username and a password.');
       return;
     }
 
+    // Client-side checks are a courtesy so the user is not made to wait on a
+    // round trip for an obvious mistake. The server re-validates all of it.
+    if (mode === 'signup') {
+      if (password.length < 8) {
+        fail('Password must be at least 8 characters.');
+        return;
+      }
+      if (password !== (pass2El.value || '')) {
+        fail('The two passwords do not match.');
+        return;
+      }
+    }
+
     submitEl.disabled = true;
-    labelEl.textContent = 'Verifying…';
+    labelEl.textContent = mode === 'signup' ? 'Creating…' : 'Verifying…';
     errEl.classList.remove('show');
 
     setTriggerValue('submit', {
+      mode: mode,
       username: username,
       password: password,
+      confirm: pass2El ? (pass2El.value || '') : '',
+      display_name: displayEl ? (displayEl.value || '').trim() : '',
       device_id: deviceId,
       telemetry: probe.snapshot(hpEl ? hpEl.value : '')
     });
@@ -402,6 +516,58 @@ def _browser_timezone(telemetry: dict) -> str:
 # ==============================================================================
 
 
+def _handle_signup(payload: dict, bot: scoring.BotAssessment,
+                   device_id: str) -> Optional[str]:
+    """Create an account, then sign the new user straight in.
+
+    Bot detection has already run in :func:`_handle_submit` and runs *before*
+    this is reached, which is the important ordering: a sign-up form is a more
+    attractive automation target than a sign-in one, because a bot that gets
+    through creates durable state rather than just failing a password check.
+
+    Risk scoring is deliberately not applied here. It scores a sign-in against
+    the account's own history, and a brand-new account has none - every signal
+    it depends on (familiar device, familiar network, habitual hour, travel
+    velocity) is undefined. Scoring it anyway would either flag every genuine
+    new user or, worse, teach the model that "no history" means "low risk".
+    The first *subsequent* sign-in is scored normally.
+    """
+    username = (payload.get("username") or "").strip()
+    password = payload.get("password") or ""
+    confirm = payload.get("confirm") or ""
+    display_name = (payload.get("display_name") or "").strip()
+
+    if password != confirm:
+        return "The two passwords do not match."
+
+    try:
+        user = store.create_user(username, password, display_name)
+    except ValueError as exc:
+        # store.create_user enforces length and uniqueness; surface its message
+        # rather than a generic one, because on sign-up the user genuinely
+        # needs to know which constraint they hit.
+        return str(exc)
+
+    location = geo.lookup(_client_ip()) if _client_ip() else geo.GeoLocation()
+
+    store.record_event(
+        user.username, success=True, decision="account_created",
+        risk_score=0.0, bot_score=bot.score,
+        location=location, device_id=device_id,
+        reasons=["Account created"],
+    )
+    store.remember_device(user.username, device_id)
+    store.update_user(user.username, last_login=time.time())
+
+    # The device that created the account is trusted for this first session.
+    assessment = scoring.RiskAssessment(
+        score=0.0, decision=scoring.ALLOW, band=scoring.BAND_LOW,
+        reasons=["New account created on this device"], location=location,
+    )
+    _begin_session(user, assessment)
+    return None
+
+
 def _handle_submit(payload: dict) -> Optional[str]:
     """Process one submission. Returns an error message, or ``None`` on success.
 
@@ -418,6 +584,8 @@ def _handle_submit(payload: dict) -> Optional[str]:
     signals = BotSignals.from_payload(telemetry)
     bot = scoring.score_bot(signals)
 
+    mode = "signup" if payload.get("mode") == "signup" else "signin"
+
     if bot.is_bot:
         store.record_event(
             username, success=False, decision="deny",
@@ -428,6 +596,9 @@ def _handle_submit(payload: dict) -> Optional[str]:
         # Deliberately vague. Naming the detector's reasons would tell an
         # attacker exactly which signal to fix next.
         return "We could not verify this request. Please reload the page and try again."
+
+    if mode == "signup":
+        return _handle_signup(payload, bot, device_id)
 
     user = store.authenticate(username, password)
     if user is None:
@@ -623,38 +794,6 @@ def render_login(active_theme: theme_mod.Theme) -> None:
             st.session_state["auth_error"] = message
         st.rerun()
 
-    # First run on a fresh install: there are no accounts yet, so offer to make
-    # one rather than leaving an unusable form.
-    if not store.list_users():
-        _render_first_run()
-
-
-def _render_first_run() -> None:
-    st.html(
-        '<div style="max-width:400px;margin:20px auto 0;position:relative;z-index:5">'
-        '<div class="rv-eyebrow" style="text-align:center">No accounts yet</div></div>'
-    )
-    left, mid, right = st.columns([1, 2, 1])
-    with mid:
-        with st.expander("Create the first account", expanded=True):
-            with st.form("create_first_user", clear_on_submit=False):
-                username = st.text_input("Username", placeholder="trader")
-                display = st.text_input("Display name", placeholder="Ada Lovelace")
-                pw1 = st.text_input("Password", type="password",
-                                    help="At least 8 characters")
-                pw2 = st.text_input("Confirm password", type="password")
-                if st.form_submit_button("Create account", type="primary",
-                                         width="stretch"):
-                    if pw1 != pw2:
-                        st.error("Passwords do not match.")
-                    else:
-                        try:
-                            store.create_user(username, pw1, display)
-                            st.success("Account created. Sign in above.")
-                            time.sleep(0.8)
-                            st.rerun()
-                        except ValueError as exc:
-                            st.error(str(exc))
 
 
 def require_login(active_theme: theme_mod.Theme) -> Optional[store.User]:
