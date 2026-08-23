@@ -1,0 +1,228 @@
+<title>MarketLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0A0D13; --surface:#111621; --surface2:#161C29; --surface3:#1C2333;
+  --border:#212A3B; --border2:#2E3A50;
+  --text:#E8EDF5; --muted:#93A1B8; --faint:#7A88A0;
+  --accent:#00D68F; --pos:#00D68F; --neg:#FF4D6A; --warn:#FFB020; --info:#4C9AFF;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:52rem;margin:0 auto;padding:0 1.25rem}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:var(--mono);font-size:.87em;background:var(--surface2);
+  padding:.12em .4em;border-radius:4px;color:var(--text)}
+
+/* hero */
+header{padding:5.5rem 0 3.5rem;text-align:center;
+  background:radial-gradient(60rem 26rem at 50% -12%,rgba(0,214,143,.12),transparent 62%)}
+.mark{width:52px;height:52px;border-radius:14px;background:var(--accent);
+  color:#04140E;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:26px;margin:0 auto 1.4rem}
+h1{font-size:3.1rem;font-weight:800;letter-spacing:-.035em;margin:0 0 .6rem;line-height:1.05}
+.tag{font-size:1.22rem;color:var(--muted);max-width:34rem;margin:0 auto 2.2rem;line-height:1.55}
+.tag b{color:var(--text);font-weight:600}
+.btns{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap}
+.btn{display:inline-block;padding:.7rem 1.5rem;border-radius:9px;font-weight:600;
+  font-size:.94rem;border:1px solid var(--border2);color:var(--text)}
+.btn.pri{background:var(--accent);color:#04140E;border-color:var(--accent)}
+.btn:hover{text-decoration:none;filter:brightness(1.1)}
+
+/* sections */
+section{padding:3.2rem 0;border-top:1px solid var(--border)}
+h2{font-size:1.6rem;font-weight:700;letter-spacing:-.02em;margin:0 0 1.1rem}
+h3{font-size:1.02rem;font-weight:650;margin:2rem 0 .5rem;color:var(--text)}
+p{margin:0 0 1.05rem;color:#cdd6e4}
+.eyebrow{font-size:.74rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.13em;color:var(--accent);margin-bottom:.55rem}
+.lead{font-size:1.1rem;color:var(--muted)}
+
+/* memo demo */
+.card{background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:1.4rem;margin:1.2rem 0}
+.cardhead{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:1rem;gap:1rem;flex-wrap:wrap}
+.lbl2{font-size:.72rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--faint)}
+.pill{font-size:.72rem;font-weight:700;padding:.2rem .65rem;border-radius:999px;
+  background:rgba(0,214,143,.14);color:var(--pos);white-space:nowrap}
+.pill.bad{background:rgba(255,77,106,.14);color:var(--neg)}
+.memo{line-height:2.05;font-size:.97rem}
+.claim{font-family:var(--mono);border-bottom:1px dotted var(--pos);font-size:.93em}
+.cite{display:inline-block;font-family:var(--mono);font-size:.68rem;font-weight:600;
+  color:var(--accent);background:rgba(0,214,143,.14);border-radius:999px;
+  padding:.08rem .42rem;margin:0 .18rem;vertical-align:1px}
+
+/* evidence */
+table{width:100%;border-collapse:collapse;font-size:.87rem;margin:.6rem 0}
+th{text-align:left;font-size:.7rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.09em;color:var(--faint);padding:.5rem .6rem;
+  border-bottom:1px solid var(--border)}
+td{padding:.44rem .6rem;border-bottom:1px solid var(--border);color:#cdd6e4}
+tr:last-child td{border-bottom:none}
+.fid,.num{font-family:var(--mono)}
+.num{text-align:right;color:var(--text)}
+.lbl{font-family:var(--mono);font-size:.82em;color:var(--muted)}
+.src{color:var(--faint);font-size:.9em}
+
+/* dag */
+.dag{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.6rem}
+.step{background:var(--surface2);border:1px solid var(--border);
+  border-left:3px solid var(--border2);border-radius:8px;padding:.62rem .75rem}
+.step.ok{border-left-color:var(--pos)}
+.step.failed{border-left-color:var(--neg)}
+.step.skipped{border-left-color:var(--faint);opacity:.72}
+.sh{display:flex;align-items:center;gap:.42rem;margin-bottom:.2rem}
+.sh i{width:6px;height:6px;border-radius:50%;background:var(--border2);flex:none}
+.step.ok .sh i{background:var(--pos)}
+.step.failed .sh i{background:var(--neg)}
+.sh b{font-size:.82rem;font-weight:600}
+.sm{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+.ss{font-size:.66rem;font-weight:700;letter-spacing:.09em;margin-top:.15rem;color:var(--faint)}
+.step.ok .ss{color:var(--pos)} .step.failed .ss{color:var(--neg)}
+
+/* status grid */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.7rem;margin:1.1rem 0}
+.mini{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:.85rem}
+.mini b{display:block;font-family:var(--mono);font-size:.83rem;margin-bottom:.2rem}
+.mini span{font-size:.85rem;color:var(--muted)}
+.mini.v b{color:var(--pos)} .mini.u b{color:var(--warn)} .mini.k b,.mini.m b{color:var(--neg)}
+
+.note{background:var(--surface2);border-left:3px solid var(--warn);
+  border-radius:0 8px 8px 0;padding:.9rem 1.1rem;margin:1.3rem 0;font-size:.93rem;color:var(--muted)}
+pre{background:var(--surface2);border:1px solid var(--border);border-radius:9px;
+  padding:.9rem 1.05rem;overflow-x:auto;font-family:var(--mono);font-size:.82rem;
+  color:#cdd6e4;line-height:1.65}
+footer{padding:3rem 0 4rem;border-top:1px solid var(--border);
+  color:var(--faint);font-size:.87rem;text-align:center}
+#story h2{font-size:1.42rem;margin-top:2.6rem;padding-top:1.7rem;border-top:1px solid var(--border)}
+#story h2:first-of-type{border-top:none;margin-top:0;padding-top:0}
+#story table{margin:1.1rem 0}
+@media (max-width:640px){h1{font-size:2.2rem} .tag{font-size:1.06rem} body{font-size:15px}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="mark">M</div>
+    <h1>MarketLens</h1>
+    <p class="tag">AI market research that <b>shows its work</b>. Every number links back to the tool call that measured it, and if the data fails it refuses to write rather than guess.</p>
+    <div class="btns">
+      <a class="btn pri" href="https://github.com/aarushkik/ReverieStockPlatform">View the code</a>
+      <a class="btn" href="#how">How it works</a>
+      <a class="btn" href="#story">The story</a>
+    </div>
+  </div>
+</header>
+
+<section id="problem"><div class="wrap">
+  <div class="eyebrow">The problem</div>
+  <h2>You cannot check an AI answer about money</h2>
+  <p class="lead">When you read one, nothing tells you which numbers came from real data and which the model produced on its own. Every figure looks equally confident. That is a verification problem, and it is solvable.</p>
+  <div class="note">We found this in our own app first. Run with the network off and it happily reported a market cap of exactly 250 billion dollars and a P/E of 24.5, both invented by a fallback path. One function derived a stock's daily percent change from the letters in its ticker symbol.</div>
+</div></section>
+
+<section id="how"><div class="wrap">
+  <div class="eyebrow">How it works</div>
+  <h2>A workflow, not a chat</h2>
+  <p>Steps run as a graph in dependency order, with independent ones in parallel. The workflow decides which tools run, never the model, so the same question on the same day makes the same calls and a run can be replayed.</p>
+  <div class="dag"><div class="step ok"><div class="sh"><i></i><b>Fetch price history</b></div><div class="sm">192 ms · yfinance</div><div class="ss">DONE</div></div><div class="step ok"><div class="sh"><i></i><b>Fetch fundamentals</b></div><div class="sm">447 ms · yfinance</div><div class="ss">DONE</div></div><div class="step ok"><div class="sh"><i></i><b>Fetch headlines</b></div><div class="sm">220 ms · yahoo-rss</div><div class="ss">DONE</div></div><div class="step ok"><div class="sh"><i></i><b>Compute indicators</b></div><div class="sm">10 ms · computed</div><div class="ss">DONE</div></div><div class="step ok"><div class="sh"><i></i><b>Detect patterns</b></div><div class="sm">11 ms · computed</div><div class="ss">DONE</div></div><div class="step ok"><div class="sh"><i></i><b>Score sentiment</b></div><div class="sm">0 ms · computed</div><div class="ss">DONE</div></div></div>
+
+  <h3>Every figure is a receipt</h3>
+  <p>Real output from a run against AAPL. Each number carries the id of the fact it came from, and hovering it in the app shows the provider and fetch time.</p>
+  <div class="card">
+    <div class="cardhead"><span class="lbl2">Generated by Featherless</span><span class="pill">every figure verified</span></div>
+    <div class="memo">The current price of AAPL is <span class="claim">$309.35</span><span class="cite">f2</span>, which is below its period high of <span class="claim">$344.27</span><span class="cite">f5</span> and above its period low of <span class="claim">$223.86</span><span class="cite">f6</span>. The stock&#x27;s last close is also below its SMA-20 of <span class="claim">$314.20</span><span class="cite">f27</span></div>
+  </div>
+
+  <h3>Backed by a fact ledger</h3>
+  <p>Everything a tool measures is registered before the model ever sees it. The model can only cite from this table.</p>
+  <div class="card" style="padding:.4rem .7rem">
+    <table><thead><tr><th>ID</th><th>Measurement</th><th style="text-align:right">Value</th><th>Tool</th><th>Source</th></tr></thead>
+    <tbody><tr><td class="fid">f2</td><td class="lbl">prices.last_close</td><td class="num">$309.35</td><td>prices</td><td class="src">yfinance</td></tr><tr><td class="fid">f5</td><td class="lbl">prices.period_high</td><td class="num">$344.27</td><td>prices</td><td class="src">yfinance</td></tr><tr><td class="fid">f6</td><td class="lbl">prices.period_low</td><td class="num">$223.86</td><td>prices</td><td class="src">yfinance</td></tr><tr><td class="fid">f16</td><td class="lbl">fundamentals.pe_ratio</td><td class="num">35.48</td><td>fundamentals</td><td class="src">yfinance</td></tr><tr><td class="fid">f17</td><td class="lbl">fundamentals.eps</td><td class="num">$8.72</td><td>fundamentals</td><td class="src">yfinance</td></tr><tr><td class="fid">f26</td><td class="lbl">indicators.rsi_14</td><td class="num">47.4</td><td>indicators</td><td class="src">computed</td></tr><tr><td class="fid">f27</td><td class="lbl">indicators.sma_20</td><td class="num">314.2</td><td>indicators</td><td class="src">computed</td></tr><tr><td class="fid">f30</td><td class="lbl">indicators.volatility_pct</td><td class="num">32.48%</td><td>indicators</td><td class="src">computed</td></tr></tbody></table>
+  </div>
+
+  <h3>Then the memo gets checked</h3>
+  <p>Asking a model to cite sources is close to worthless, because it will attach a convincing citation to a number it invented. So MarketLens reads its own finished memo back and checks every figure against the ledger.</p>
+  <div class="grid2">
+    <div class="mini v"><b>verified</b><span>matches what we measured</span></div>
+    <div class="mini u"><b>uncited</b><span>a number with no source</span></div>
+    <div class="mini k"><b>unknown_fact</b><span>cites an id that does not exist</span></div>
+    <div class="mini m"><b>mismatch</b><span>cites something real, writes a different number</span></div>
+  </div>
+</div></section>
+
+<section id="refuse"><div class="wrap">
+  <div class="eyebrow">The part people remember</div>
+  <h2>When the data fails, it says nothing</h2>
+  <p>Give it a symbol that does not resolve. The pipeline goes red, dependent steps are skipped, and no memo is produced. There is a working language model available and unused.</p>
+  <div class="dag"><div class="step failed"><div class="sh"><i></i><b>Fetch price history</b></div><div class="sm">price history unavailable: empty response</div><div class="ss">FAILED</div></div><div class="step failed"><div class="sh"><i></i><b>Fetch fundamentals</b></div><div class="sm">ticker info unavailable: no data</div><div class="ss">FAILED</div></div><div class="step skipped"><div class="sh"><i></i><b>Compute indicators</b></div><div class="sm">dependency did not complete</div><div class="ss">SKIPPED</div></div><div class="step skipped"><div class="sh"><i></i><b>Detect patterns</b></div><div class="sm">dependency did not complete</div><div class="ss">SKIPPED</div></div></div>
+  <div class="card" style="border-color:var(--neg);margin-top:1rem">
+    <div class="cardhead"><span class="lbl2" style="color:var(--neg)">No memo was written</span><span class="pill bad">run halted</span></div>
+    <p style="margin:0;font-size:.93rem;color:var(--muted)">A required step did not complete, so the workflow stopped rather than letting the model write around the gap. Any facts that were measured are still listed and can be inspected.</p>
+  </div>
+</div></section>
+
+<section id="run"><div class="wrap">
+  <div class="eyebrow">Run it</div>
+  <h2>Locally in four commands</h2>
+  <pre>git clone https://github.com/aarushkik/ReverieStockPlatform
+pip install -r requirements.txt
+python -m auth.train
+streamlit run app.py</pre>
+  <p style="font-size:.93rem;color:var(--muted)">MarketLens is a Streamlit server, so it needs a Python host and cannot run on this page. Set any one of <code>FEATHERLESS_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, <code>DEEPSEEK_API_KEY</code> or <code>GEMINI_API_KEY</code> to enable memo writing. Without one it still runs the pipeline and collects facts, and tells you so.</p>
+</div></section>
+
+<section id="story"><div class="wrap">
+  <div class="eyebrow">The story</div>
+  <h2 id="inspiration">Inspiration</h2>
+<p>We were building a normal market terminal. Then one afternoon we ran it with the wifi off, mostly by accident, and it kept working.</p>
+<p>Prices showed up. Fundamentals showed up. A market cap of exactly 250 billion dollars, a P/E of 24.5, a full table of top gainers and losers. All of it came from our own fallback code, in the same font and the same colour as the real thing, with nothing on screen to tell you the difference. One function was calculating a stock&#x27;s daily percent change from the letters in its ticker symbol. It added up the character codes and did some arithmetic on them. That was the number a user would have read as a real price move.</p>
+<p>Nobody wrote that to be dishonest. It happened the way it always happens, one reasonable looking <code>except</code> block at a time, each one just trying to keep the page from crashing.</p>
+<p>But it made the real problem obvious. People are already making money decisions on AI answers they cannot check. The issue is not that models are dumb. It is that when you read an answer, nothing tells you which parts came from real data and which the model made up. Every number looks equally confident. We had built a small version of that exact problem without noticing, so we decided to go build the fix instead.</p>
+<h2 id="what-it-does">What it does</h2>
+<p>MarketLens is a market terminal where AI research runs as a workflow instead of a chat.</p>
+<p>You pick what you want to know, and it runs a pipeline of real tools over real market data while you watch. Prices, indicators, fundamentals, news, sentiment. Then it writes you a memo where every single number is a receipt. Hover any figure and you see the exact tool call that measured it, which provider it came from, and how long ago.</p>
+<p>The part we care most about is what happens when the model gets something wrong. We do not just ask it to cite sources, because a model will happily stick a convincing looking citation on a number it invented. Instead MarketLens reads its own finished memo back, pulls out every number in it, and checks each one against what the tools actually returned.</p>
+<p>There are four possible outcomes for any figure:</p>
+<table><thead><tr><th>Status</th><th>What it means</th></tr></thead><tbody><tr><td><code>verified</code></td><td>the number matches what we measured</td></tr><tr><td><code>uncited</code></td><td>a number with no source at all</td></tr><tr><td><code>unknown_fact</code></td><td>it cited an id that does not exist</td></tr><tr><td><code>mismatch</code></td><td>it cited something real but wrote a different number</td></tr></tbody></table>
+<p>Anything that fails shows up flagged in the memo, in front of the reader, rather than being quietly fixed or hidden.</p>
+<p>And if a data source goes down, the run stops and no memo gets written at all. Even with a perfectly good model sitting there waiting. It would rather tell you it does not know.</p>
+<h2 id="how-we-built-it">How we built it</h2>
+<p>Everything follows from one decision: the workflow picks the tools, not the model.</p>
+<p>Each workflow is a graph of steps. The engine runs them in dependency order and fires independent ones in parallel, so fetching prices, fundamentals and news all happen at once. The language model never chooses what to call. Its only job is to reason over data it did not select.</p>
+<p>We gave up some flexibility there and got something better in return. The same workflow on the same day makes the same calls, so a run can be replayed and audited. It also cuts out the flakiest part of most agent systems, which is the model wandering off and calling something strange.</p>
+<p>Underneath sits the fact ledger. Every number a tool produces gets registered with an id, a value, a unit and where it came from. That table goes into the prompt, and the model is told it can only cite from it. Afterwards we compare each number in the memo against the fact it cited, allowing for honest rounding but nothing more. Writing 182.40 for a measured 182.3956 is fine. Writing 192.40 is not.</p>
+<p>Then we had to go back and fix the data layer, because a ledger built on invented numbers would be worthless. Every fetcher now either returns something it actually measured or raises an error. Nothing returns a plausible substitute anymore.</p>
+<p>On top of that we built a design system where every colour, size and spacing value comes from tokens, so the whole terminal reskins across four palettes and three densities with contrast guaranteed. And there is a sign in layer with trained models for spotting impossible travel between logins and detecting bots.</p>
+<h2 id="challenges-we-ran-into">Challenges we ran into</h2>
+<p><strong>Our first model scored 100 percent, and that was the bug.</strong> The login risk classifier came back with a perfect AUC of 1.0000. That is not a win, it is a warning. It meant the fake attackers and fake real users we generated were trivially different, and the model had found some giveaway instead of learning anything useful. We had made every attacker noisy and every legitimate user clean. Fixing it meant writing in the cases that actually trip real systems up: someone fumbling their password four times, a laptop bought while travelling, an attacker renting a residential IP, malware replaying a stolen device fingerprint. It landed at 0.966, which is a number we actually trust.</p>
+<p><strong>A real model found a bug that our fake ones never could.</strong> We tested the verifier for ages against stub models that wrote exactly the citations we expected. The first time we pointed a real 70B model at it, the model wrote &quot;its SMA-20 of $314.20&quot; and our verifier flagged the 20 as an unverified claim. It had read a parameter name as a claim about the market. Three angry red warnings on a memo that was completely correct. That taught us something uncomfortable: stubs only ever confirm what you already assumed.</p>
+<p><strong>Merging two branches that had both rewritten the same 3000 line file.</strong> Eighteen commits each way. What caught us out is that when you resolve a conflict in favour of one side, you drop the other side&#x27;s definitions, but any code that <em>uses</em> them sitting in a quiet part of the file survives untouched. Git merges those without a word. Four broken references made it through and only blew up at runtime, one crash at a time. Running a linter over the merged result found all of them in a single pass, which is a lesson we will not forget.</p>
+<p><strong>Slow code hiding in plain sight.</strong> The RSI chart was recalculating the entire history for every single bar on the chart. Fixing it meant reproducing the original smoothing formula exactly so no chart in the app would silently change shape. It went from 51 milliseconds to 0.4, and we pinned it against the old version bit for bit to prove nothing moved.</p>
+<h2 id="accomplishments-that-we-re-proud-of">Accomplishments that we&#x27;re proud of</h2>
+<p><strong>The moment where it refuses to answer.</strong> Type in a symbol that does not exist and watch the pipeline go red, the dependent steps get skipped, and the memo simply never appear. There is a working language model sitting right there, unused. Every demo we have shown, that is the part people remember.</p>
+<p><strong>We caught a real model lying, live.</strong> Not in a test with a rigged stub. We wrote a prompt deliberately telling the model to state a forward P/E, an analyst price target, revenue growth and a dividend yield, with exact numbers. It refused four times and said the data was not available. When we forced a bad number through anyway, the verifier flagged it as a mismatch and showed the reader.</p>
+<p><strong>Zero invented numbers left.</strong> We went through and tore out every fabrication we had: the fake company, the fake market movers, the fake insider trades that were attributed to real named executives, the machine learning model reporting a backtest accuracy it had never computed. You can grep the codebase for the tricks we used and find nothing.</p>
+<p><strong>158 tests, all offline, running in about a second.</strong> This project had zero tests when we started. The most valuable ones are the adversarial cases, where we hand the verifier a memo that cites a real fact but states the wrong number and make sure it gets caught every time.</p>
+<p><strong>We found a bug that had been silently broken forever.</strong> News fetching had been failing on every single request because of a certificate problem, and a bare <code>except</code> was turning that into an empty list. The app could not tell the difference between &quot;no news today&quot; and &quot;our networking is broken&quot;, so neither could anyone using it.</p>
+<h2 id="what-we-learned">What we learned</h2>
+<p>That a merge which compiles is not a merge that works. That a perfect score usually means you tested the wrong thing. That stub data agrees with you and real systems argue back, which is exactly why you need to plug the real thing in early.</p>
+<p>But mostly we learned that honesty is something you build, not something you claim. Our verifier is only believable because we first went and ripped out every place the app was making things up. When someone asks how they know the data underneath is not lying too, we can point them at the commits instead of asking them to trust us.</p>
+<h2 id="what-s-next-for-marketlens">What&#x27;s next for MarketLens</h2>
+<p>Run history, so you can ask the same question a week later and see exactly which facts moved and which stayed put. Saved portfolios that survive a refresh. And pushing citation checking out of the workflow tab and into every corner of the app, so that no number anywhere appears without something real standing behind it.</p>
+</div></section>
+
+<footer><div class="wrap">
+  MarketLens · built for a hackathon ·
+  <a href="https://github.com/aarushkik/ReverieStockPlatform">source on GitHub</a>
+</div></footer>
