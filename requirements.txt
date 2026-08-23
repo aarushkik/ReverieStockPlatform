@@ -4,13 +4,15 @@ numpy>=1.24.0
 plotly>=5.20.0
 yfinance>=0.2.38
 requests>=2.31.0
-rich>=13.0.0
 google-genai>=0.1.0
 
-# Login-risk and bot-detection models (auth/) and the price predictor
-scikit-learn>=1.4.0
-joblib>=1.3.0
-xgboost>=2.0.0
+# Required at runtime: app.py imports dashboard.py, which imports rich
+# at module level for the report renderer.
+rich>=13.0.0
 
-# Development only
-pytest>=8.0.0
+# Login-risk and bot-detection models (auth/) and the price predictor.
+# The committed .joblib artifacts are pickled estimators, so a major version
+# jump can make them unloadable. auth/scoring.py degrades to its rule layer if
+# that happens, and `python -m auth.train` regenerates them in about 30s.
+scikit-learn>=1.4,<2.0
+joblib>=1.3.0

@@ -260,6 +260,36 @@ def load_env_file():
 
 load_env_file()
 
+
+def _load_streamlit_secrets() -> None:
+    """Copy st.secrets into os.environ.
+
+    Everything in this codebase reads configuration with os.environ.get, which
+    works locally because load_env_file() populates it from .env. On Streamlit
+    Community Cloud there is no .env: secrets are pasted into the dashboard and
+    surfaced as st.secrets instead. Without this bridge a deployed instance
+    would silently behave as though no API key had been set, which is exactly
+    the kind of quiet misconfiguration that is hard to diagnose from a running
+    app.
+
+    Existing environment variables win, so a local .env still overrides.
+    """
+    try:
+        secrets = st.secrets
+    except Exception:
+        # No secrets.toml locally and no Cloud secrets configured. Not an error.
+        return
+    try:
+        items = list(secrets.items())
+    except Exception:
+        return
+    for key, value in items:
+        if isinstance(value, (str, int, float, bool)) and not os.environ.get(str(key)):
+            os.environ[str(key)] = str(value)
+
+
+_load_streamlit_secrets()
+
 st.set_page_config(
     page_title="Reverie Terminal",
     page_icon="◆",

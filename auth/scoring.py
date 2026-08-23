@@ -87,7 +87,24 @@ def _load(path: str, expected_features: List[str], key: str):
             )
         import joblib
 
-        bundle = joblib.load(path)
+        try:
+            bundle = joblib.load(path)
+        except ModelUnavailable:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            # A pickled estimator is only portable across compatible library
+            # versions. The artifacts are trained locally and committed, so a
+            # deployment on a different scikit-learn or Python build can fail
+            # to unpickle them. That must degrade to the rule layer rather than
+            # crash sign-in, so it is converted into ModelUnavailable like any
+            # other missing model.
+            raise ModelUnavailable(
+                f"{os.path.basename(path)} could not be loaded "
+                f"({type(exc).__name__}: {exc}). This usually means the "
+                f"artifact was trained with a different scikit-learn version. "
+                f"Retrain with: python -m auth.train"
+            ) from exc
+
         stored = list(bundle.get("features", []))
         if stored != expected_features:
             raise ModelUnavailable(

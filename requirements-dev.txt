@@ -1,0 +1,5 @@
+-r requirements.txt
+
+# Test and tooling only. Not installed on the deployed app.
+pytest>=8.0.0
+pyflakes>=3.0.0
