@@ -14,7 +14,7 @@ import requests
 # Import backend engine
 from data_fetcher import get_stock_data, load_env_file
 from analyzer import run_analysis, analyze_sentiment
-from agent_logic import evaluate_ticker, chat_with_ai_copilot
+from agent_logic import evaluate_ticker
 from dashboard import generate_markdown_report
 
 # Design system, motion primitives and the authentication layer
@@ -3212,6 +3212,187 @@ elif current_tab == "PATTERN_GUIDE":
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
+# TAB: COPILOT — grounded chat over measured facts
+# ──────────────────────────────────────────────────────────────────────────────
+elif current_tab == "AI_COPILOT":
+    _cp_symbol = st.session_state["active_ticker"]
+    st.html(fx.section_header(
+        "Copilot", f"grounded on measured data for {_cp_symbol}"))
+
+    st.session_state.setdefault("copilot_messages", [])
+    st.session_state.setdefault("copilot_facts_for", "")
+
+    # Load a fact base for the active symbol. The copilot used to receive only
+    # the ticker *string*, so a question about "SMA 20 vs SMA 60 and RSI" reached
+    # the model with none of those numbers and it could only generalise. It now
+    # answers over the same ledger the Workbench builds, and its numeric claims
+    # are checked the same way.
+    if st.session_state["copilot_facts_for"] != _cp_symbol:
+        with st.spinner(f"Loading data for {_cp_symbol}…"):
+            _ctx = wf.execute(
+                wf.Workflow(
+                    key="copilot_ctx", name="Copilot context", description="",
+                    inputs=("symbol",),
+                    steps=(
+                        wf.Step("prices", "prices",
+                                {"symbol": "$input.symbol", "period": "1y"},
+                                label="Price history"),
+                        wf.Step("indicators", "indicators",
+                                {"symbol": "$input.symbol",
+                                 "history": "$artifact:prices"},
+                                depends_on=("prices",), label="Indicators"),
+                        wf.Step("fundamentals", "fundamentals",
+                                {"symbol": "$input.symbol"},
+                                label="Fundamentals", required=False),
+                        wf.Step("news", "news",
+                                {"symbol": "$input.symbol", "limit": 8},
+                                label="Headlines", required=False),
+                    ),
+                ),
+                {"symbol": _cp_symbol},
+            )
+        st.session_state["copilot_run"] = _ctx
+        st.session_state["copilot_facts_for"] = _cp_symbol
+        st.session_state["copilot_messages"] = []
+
+    _ctx_run = st.session_state.get("copilot_run")
+    _ledger = _ctx_run.ledger if _ctx_run else None
+    _headlines = []
+    if _ctx_run and _ctx_run.results.get("news") and _ctx_run.results["news"].ok:
+        _headlines = _ctx_run.results["news"].value.get("headlines", [])
+
+    _model_label = wf_llm.active_model_label()
+    _have_model = wf_llm.best_provider() is not None
+
+    # Context strip: what the copilot can actually see.
+    if _ctx_run and _ctx_run.status == "failed":
+        st.html(
+            '<div class="rv-card" style="border-color:var(--rv-neg)">'
+            '<div class="rv-eyebrow" style="color:var(--rv-neg);margin-bottom:6px">'
+            'No data for this symbol</div>'
+            '<div style="font-size:var(--rv-fs-small);color:var(--rv-text-muted);'
+            f'line-height:1.6">{_ctx_run.error}<br><br>The copilot will not answer '
+            'questions about a symbol it could not measure.</div></div>')
+    else:
+        _c1, _c2, _c3, _c4 = st.columns(4)
+        with _c1:
+            st.html(fx.metric("Symbol", _cp_symbol))
+        with _c2:
+            st.html(fx.metric("Facts available", str(len(_ledger) if _ledger else 0)))
+        with _c3:
+            st.html(fx.metric("Headlines", str(len(_headlines))))
+        with _c4:
+            st.html(fx.metric("Model", _model_label.split(" · ")[-1]
+                              if _have_model else "unavailable",
+                              delta_kind="neutral" if _have_model else "neg"))
+
+    if not _have_model:
+        st.warning(
+            "No language model is configured, so the copilot cannot answer. "
+            "Set `FEATHERLESS_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, "
+            "`DEEPSEEK_API_KEY` or `GEMINI_API_KEY`.",
+            icon=":material/info:")
+
+    # ── QUICK PROMPTS ──
+    _quick = [
+        ("Technical setup", "Describe the current technical setup."),
+        ("Momentum", "What do the momentum indicators say right now?"),
+        ("Valuation", "How does the valuation look on the measured figures?"),
+        ("What's missing", "What would I need that this data does not include?"),
+    ]
+    _pending = None
+    _qcols = st.columns(len(_quick))
+    for _col, (_label, _prompt) in zip(_qcols, _quick):
+        with _col:
+            if st.button(_label, key=f"cp_quick_{_label}", width="stretch",
+                         disabled=not _have_model):
+                _pending = _prompt
+
+    # ── TRANSCRIPT ──
+    if not st.session_state["copilot_messages"]:
+        st.html(fx.empty_state(
+            f"Ask anything about {_cp_symbol}", "◈",
+            "Answers are drawn from the measured facts below. Figures the "
+            "copilot cannot back are flagged."))
+
+    for _msg in st.session_state["copilot_messages"]:
+        with st.chat_message(_msg["role"]):
+            if _msg["role"] == "assistant" and _msg.get("verified_html"):
+                st.html(_msg["verified_html"])
+                if _msg.get("badge"):
+                    st.html(_msg["badge"])
+            else:
+                st.markdown(_msg["content"])
+
+    _typed = st.chat_input(f"Ask about {_cp_symbol}…", disabled=not _have_model)
+    _question = _pending or _typed
+
+    if _question and _have_model and _ledger is not None:
+        st.session_state["copilot_messages"].append(
+            {"role": "user", "content": _question})
+
+        _system = (
+            "You are a market research assistant. You are given a table of "
+            "measured facts, each with an id like [f3].\n\n"
+            "Rules:\n"
+            "1. Every number you write MUST be immediately followed by the id "
+            "of the fact it came from, e.g. \"trading at $182.40 [f1]\".\n"
+            "2. Never state a number that is not in the fact table. If it was "
+            "not measured, say so in words.\n"
+            "3. Be concise. Describe what the data shows; do not give "
+            "investment advice or price targets."
+        )
+        _history = "\n".join(
+            f"{m['role']}: {m['content']}"
+            for m in st.session_state["copilot_messages"][-6:-1]
+        )
+        _news_block = ("\n".join(f"- {h}" for h in _headlines[:8])
+                       if _headlines else "(no headlines available)")
+        _prompt = (
+            f"Symbol: {_cp_symbol}\n\n"
+            f"Measured facts:\n{_ledger.render_table()}\n\n"
+            f"Recent headlines:\n{_news_block}\n\n"
+            + (f"Earlier in this conversation:\n{_history}\n\n" if _history else "")
+            + f"Question: {_question}"
+        )
+
+        with st.spinner(f"Thinking via {_model_label}…"):
+            try:
+                _answer = wf_llm.make_completer()(_prompt, _system)
+            except Exception as _exc:      # noqa: BLE001
+                _answer = None
+                _err = str(_exc)
+
+        if _answer:
+            _report = wf.verify(_answer, _ledger)
+            st.session_state["copilot_messages"].append({
+                "role": "assistant",
+                "content": _answer,
+                "verified_html": wf_render.render_memo_html(
+                    _answer, _ledger, _report),
+                "badge": wf_render.render_verification_badge(_report),
+            })
+        else:
+            # No canned answer. The copilot says the model failed.
+            st.session_state["copilot_messages"].append({
+                "role": "assistant",
+                "content": f"The model could not be reached: {_err}",
+            })
+        st.rerun()
+
+    # ── EVIDENCE ──
+    # Collapsed. It is the backing detail, not the point - left expanded it
+    # pushed the actual answer off screen behind thirty rows of table.
+    if _ledger is not None and len(_ledger):
+        with st.expander(f"What the copilot can see · {len(_ledger)} measurements"):
+            st.caption(
+                "Every figure in an answer above is drawn from this table and "
+                "checked against it. Anything the copilot cannot back is marked "
+                "unverified.")
+            st.html(wf_render.render_evidence_html(_ledger, limit=60))
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # TAB: WORKBENCH — verifiable AI research workflows
 # ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "WORKBENCH":
@@ -3257,11 +3438,9 @@ elif current_tab == "WORKBENCH":
             _providers = []
 
         if _providers:
-            _provider_key = st.selectbox(
-                "Model", options=[p.key for p in _providers],
-                format_func=lambda k: wf_llm.PROVIDERS[k].label,
-                key="wb_provider")
-            st.html(fx.pulse_dot(f"{len(_providers)} model(s) available", "pos"))
+            # Best available, chosen automatically - see workflow.llm.PREFERENCE.
+            _provider_key = _providers[0].key
+            st.html(fx.pulse_dot(wf_llm.active_model_label(), "pos"))
         else:
             _provider_key = None
             st.warning(
@@ -3571,9 +3750,6 @@ elif current_tab == "SECURITY":
 # ==============================================================================
 # SIDEBAR — compact black AI helper
 # ==============================================================================
-_DEFAULT_SIDEBAR_MODEL = "Qwen/Qwen2.5-72B-Instruct"
-if "sidebar_model_select" not in st.session_state:
-    st.session_state["sidebar_model_select"] = _DEFAULT_SIDEBAR_MODEL
 
 
 def _render_side_chat_html(messages):
@@ -3697,20 +3873,12 @@ with st.sidebar:
     st.markdown("### 💬 AI Copilot Assistant")
     st.caption("Chat with an institutional AI market assistant powered by Featherless AI:")
     
-    selected_copilot_model = st.selectbox(
-        "Select Active AI Model:",
-        [
-            "Qwen/Qwen2.5-72B-Instruct",
-            "Wolfram|Alpha Conversational LLM",
-            "meta-llama/Llama-3.3-70B-Instruct",
-            "deepseek-ai/DeepSeek-V3",
-            "huihui-ai/Llama-3.3-70B-Instruct-abliterated",
-            "meta-llama/Meta-Llama-3.1-8B-Instruct",
-            "google/gemma-2-27b-it"
-        ],
-        index=0,
-        key="sidebar_model_select"
-    )
+    # No model picker. "Which model" is not a decision a person opening a
+    # market terminal has the information to make, and a dropdown of names
+    # invites picking a weaker one by accident. The app takes the best provider
+    # it has a key for (workflow.llm.PREFERENCE) and says which that is.
+    selected_copilot_model = wf_llm.active_model_label()
+    st.caption(f"Model: {selected_copilot_model}")
     st.markdown(
         f"""
         <div class="ai-side-shell">
@@ -3767,16 +3935,41 @@ with st.sidebar:
     user_input = st.chat_input(f"Ask about {context_ticker}…")
     if user_input:
         st.session_state["sidebar_chat_messages"].append({"role": "user", "content": user_input})
-        selected_copilot_model = st.session_state.get(
-            "sidebar_model_select", _DEFAULT_SIDEBAR_MODEL
+        # Routed through workflow.llm rather than chat_with_ai_copilot, whose
+        # final fallback returns a canned "Market Copilot Note: Ticker X is
+        # currently consolidating..." styled exactly like a real answer. A user
+        # with a dead key could not tell. This path says the model failed.
+        _side_ledger = None
+        _side_run = st.session_state.get("copilot_run")
+        if _side_run is not None and st.session_state.get("copilot_facts_for") == context_ticker:
+            _side_ledger = _side_run.ledger
+
+        _side_system = (
+            "You are a market desk assistant. Be concise and describe only what "
+            "the data shows. Do not give investment advice or price targets."
         )
-        with st.spinner("Thinking…"):
-            reply = chat_with_ai_copilot(
-                user_query=user_input,
-                chat_history=st.session_state["sidebar_chat_messages"],
-                model_name=selected_copilot_model,
-                context_ticker=context_ticker,
+        if _side_ledger is not None and len(_side_ledger):
+            _side_system += (
+                "\n\nEvery number you write MUST be followed by the id of the "
+                "fact it came from, e.g. [f3]. Never state a number that is not "
+                "in the fact table."
             )
+            _side_prompt = (
+                f"Symbol: {context_ticker}\n\nMeasured facts:\n"
+                f"{_side_ledger.render_table()}\n\nQuestion: {user_input}"
+            )
+        else:
+            _side_system += (
+                "\n\nYou have no measured data for this symbol. Say so rather "
+                "than estimating any figure."
+            )
+            _side_prompt = f"Symbol: {context_ticker}\n\nQuestion: {user_input}"
+
+        with st.spinner("Thinking…"):
+            try:
+                reply = wf_llm.make_completer()(_side_prompt, _side_system)
+            except Exception as _side_exc:      # noqa: BLE001
+                reply = f"The model is unavailable right now: {_side_exc}"
         st.session_state["sidebar_chat_messages"].append(
             {"role": "assistant", "content": reply}
         )

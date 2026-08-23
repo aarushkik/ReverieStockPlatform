@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import requests
 
@@ -31,8 +31,11 @@ __all__ = [
     "ModelCallFailed",
     "Provider",
     "available_providers",
+    "best_provider",
+    "active_model_label",
     "make_completer",
     "DEFAULT_TIMEOUT",
+    "PREFERENCE",
 ]
 
 DEFAULT_TIMEOUT = 45.0
@@ -74,9 +77,44 @@ PROVIDERS: Dict[str, Provider] = {
 }
 
 
+# Capability ranking, best first. The app picks from this automatically rather
+# than asking the user, because "which model" is not a decision a person opening
+# a market terminal has the information to make - the useful answer is always
+# "the best one you have a key for", and offering a dropdown of names invites
+# picking a weaker model by accident. The order reflects reasoning quality on
+# analytical text; it only has any effect when more than one key is present.
+PREFERENCE: Tuple[str, ...] = (
+    "anthropic",
+    "openai",
+    "gemini",
+    "deepseek",
+    "featherless",
+)
+
+
 def available_providers() -> List[Provider]:
-    """Providers with a usable key, in preference order."""
-    return [p for p in PROVIDERS.values() if p.configured]
+    """Providers with a usable key, best first."""
+    ranked = {key: i for i, key in enumerate(PREFERENCE)}
+    return sorted(
+        (p for p in PROVIDERS.values() if p.configured),
+        key=lambda p: ranked.get(p.key, len(ranked)),
+    )
+
+
+def best_provider() -> Optional[Provider]:
+    """The highest-ranked provider that has a key, or None."""
+    found = available_providers()
+    return found[0] if found else None
+
+
+def active_model_label() -> str:
+    """What the UI shows instead of a model picker."""
+    provider = best_provider()
+    if provider is None:
+        return "no model configured"
+    model = provider.default_model
+    # Featherless model ids are org/name; the name alone is what a person reads.
+    return f"{provider.label} · {model.split('/')[-1]}"
 
 
 # ==============================================================================
