@@ -269,3 +269,48 @@ def test_claim_offsets_point_at_the_text(ledger):
     text = "NVDA closed at $182.40 [f1]."
     claim = verify(text, ledger).claims[0]
     assert text[claim.start:claim.end] == "$182.40"
+
+
+# ==============================================================================
+# False positives observed against a live model
+# ==============================================================================
+# Every case here was produced by a real model writing a real memo. Each one was
+# flagged as unverified when it should not have been. False positives are how a
+# warning system gets trained out of a reader's attention, so they are pinned.
+
+
+@pytest.fixture
+def indicator_ledger():
+    led = Ledger()
+    led.add_from_result(_result(
+        {"sma_20": 314.2, "sma_60": 309.261, "rsi_14": 47.3986, "close": 309.35},
+        tool="indicators", source="computed"))
+    return led
+
+
+@pytest.mark.parametrize("text", [
+    "The close is below its SMA-20 of $314.20 [f1].",
+    "It sits near its SMA 60 of $309.26 [f2].",
+    "Momentum indicators show an RSI-14 of 47.4 [f3].",
+    "RSI 14 sits at 47.4 [f3].",
+    "The EMA-9 and MACD-12 both turned.",
+])
+def test_an_indicators_own_parameter_is_not_a_claim(indicator_ledger, text):
+    """A model wrote "its SMA-20 of $314.20 [f27]" and the verifier flagged the
+    20, matching it against the citation belonging to the price beside it."""
+    report = verify(text, indicator_ledger)
+    assert report.flagged == []
+
+
+def test_the_indicator_rule_does_not_swallow_real_claims(indicator_ledger):
+    # The price after "SMA-20 of" is still a claim and still checked.
+    report = verify("The close is below its SMA-20 of $999.00 [f1].", indicator_ledger)
+    assert len(report.flagged) == 1
+    assert report.flagged[0].text == "$999.00"
+
+
+def test_window_and_indicator_forms_both_pass(indicator_ledger):
+    report = verify("The 20-day SMA is $314.20 [f1] and the RSI-14 is 47.4 [f3].",
+                    indicator_ledger)
+    assert report.total == 2
+    assert report.verified == 2

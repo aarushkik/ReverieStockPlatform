@@ -302,6 +302,16 @@ _WINDOW_WORD = re.compile(
     re.I,
 )
 
+# The same idea from the other side: "SMA-20", "RSI 14", "EMA-9". Here the
+# indicator names its own parameter and the number trails it. Observed live —
+# a model wrote "its SMA-20 of $314.20 [f27]" and the verifier flagged the 20,
+# matching it against the citation that belonged to the price beside it.
+_INDICATOR_PARAM = re.compile(
+    r"\b(sma|ema|wma|rsi|macd|atr|adx|cci|mfi|roc|bb|boll|stoch|vwap|obv)"
+    r"[\s\-_]?$",
+    re.I,
+)
+
 
 def _parse_number(match: re.Match) -> Optional[float]:
     raw = match.group("num").replace(",", "")
@@ -338,6 +348,9 @@ def _is_ignorable(match: re.Match, text: str) -> bool:
     # A window or parameter length: "1-year high", "14-day RSI".
     if not match.group("cur") and not match.group("suffix"):
         if _WINDOW_WORD.match(text[match.end():match.end() + 12]):
+            return True
+        # An indicator's own parameter: "SMA-20", "RSI 14", "EMA-9".
+        if _INDICATOR_PARAM.search(text[max(0, match.start() - 8):match.start()]):
             return True
 
     # Markdown list numbering / headings at line start: "1. ", "2) "
