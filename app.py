@@ -1780,6 +1780,58 @@ def set_order_sell():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# COPILOT FACT CONTEXT
+# ──────────────────────────────────────────────────────────────────────────────
+# Both copilots - the tab and the sidebar - answer over a ledger of measured
+# facts rather than the ticker string alone. This used to be built inline in the
+# Copilot tab and cached under a single session key, which meant the sidebar
+# could only see facts if you had already opened the tab for that same symbol.
+# Asked from any other tab, the sidebar fell through to its "you have no
+# measured data" branch and the model correctly answered that it did not know
+# anything about the stock - while the data itself was one call away.
+#
+# The context is cached per symbol so switching back and forth does not refetch,
+# and so the two copilots share one fetch rather than each paying for their own.
+def _copilot_context(symbol: str):
+    """Return a completed Run holding the fact base for ``symbol``."""
+    cache = st.session_state.setdefault("_copilot_ctx_cache", {})
+    key = (symbol or "").upper()
+    if key in cache:
+        return cache[key]
+
+    run = wf.execute(
+        wf.Workflow(
+            key="copilot_ctx", name="Copilot context", description="",
+            inputs=("symbol",),
+            steps=(
+                wf.Step("prices", "prices",
+                        {"symbol": "$input.symbol", "period": "1y"},
+                        label="Price history"),
+                wf.Step("indicators", "indicators",
+                        {"symbol": "$input.symbol",
+                         "history": "$artifact:prices"},
+                        depends_on=("prices",), label="Indicators"),
+                wf.Step("fundamentals", "fundamentals",
+                        {"symbol": "$input.symbol"},
+                        label="Fundamentals", required=False),
+                wf.Step("news", "news",
+                        {"symbol": "$input.symbol", "limit": 8},
+                        label="Headlines", required=False),
+            ),
+        ),
+        {"symbol": key},
+    )
+    # Only cache a run that actually carries facts. Caching a failed fetch would
+    # pin the "no data" answer in place until the session ended, even after the
+    # network came back.
+    if run.status != "failed":
+        cache[key] = run
+    return run
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# TAB: COPILOT — grounded chat over measured facts
+# ──────────────────────────────────────────────────────────────────────────────
 # TAB 1: MARKET TERMINAL (MARKET HOME)
 # ──────────────────────────────────────────────────────────────────────────────
 if current_tab == "MARKET_HOME":
@@ -3242,8 +3294,6 @@ elif current_tab == "PATTERN_GUIDE":
 """, unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB: COPILOT — grounded chat over measured facts
-# ──────────────────────────────────────────────────────────────────────────────
 elif current_tab == "AI_COPILOT":
     _cp_symbol = st.session_state["active_ticker"]
     st.html(fx.section_header(
@@ -3259,28 +3309,7 @@ elif current_tab == "AI_COPILOT":
     # are checked the same way.
     if st.session_state["copilot_facts_for"] != _cp_symbol:
         with st.spinner(f"Loading data for {_cp_symbol}…"):
-            _ctx = wf.execute(
-                wf.Workflow(
-                    key="copilot_ctx", name="Copilot context", description="",
-                    inputs=("symbol",),
-                    steps=(
-                        wf.Step("prices", "prices",
-                                {"symbol": "$input.symbol", "period": "1y"},
-                                label="Price history"),
-                        wf.Step("indicators", "indicators",
-                                {"symbol": "$input.symbol",
-                                 "history": "$artifact:prices"},
-                                depends_on=("prices",), label="Indicators"),
-                        wf.Step("fundamentals", "fundamentals",
-                                {"symbol": "$input.symbol"},
-                                label="Fundamentals", required=False),
-                        wf.Step("news", "news",
-                                {"symbol": "$input.symbol", "limit": 8},
-                                label="Headlines", required=False),
-                    ),
-                ),
-                {"symbol": _cp_symbol},
-            )
+            _ctx = _copilot_context(_cp_symbol)
         st.session_state["copilot_run"] = _ctx
         st.session_state["copilot_facts_for"] = _cp_symbol
         st.session_state["copilot_messages"] = []
@@ -3969,9 +3998,15 @@ with st.sidebar:
         # final fallback returns a canned "Market Copilot Note: Ticker X is
         # currently consolidating..." styled exactly like a real answer. A user
         # with a dead key could not tell. This path says the model failed.
+        # Load the fact base for whatever ticker the desk is on. This used to
+        # reuse the Copilot tab's cached run and only when it happened to be for
+        # the same symbol, so the common case - asking the sidebar without ever
+        # opening that tab - reached the model with no facts at all and it
+        # answered that it had no information on the stock.
         _side_ledger = None
-        _side_run = st.session_state.get("copilot_run")
-        if _side_run is not None and st.session_state.get("copilot_facts_for") == context_ticker:
+        with st.spinner(f"Loading data for {context_ticker}…"):
+            _side_run = _copilot_context(context_ticker)
+        if _side_run is not None and _side_run.status != "failed":
             _side_ledger = _side_run.ledger
 
         _side_system = (
